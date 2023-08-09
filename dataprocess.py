@@ -1,6 +1,9 @@
 import os
 import re
 import pandas as pd
+import os
+from langdetect import detect
+import shutil
 
 def modify_and_number_txt_files(folder_path):
     # 获取文件夹中所有txt文件
@@ -37,10 +40,9 @@ def modify_and_number_txt_files(folder_path):
         # 打印文件名和序号
         print(f'{file_name} - {file_number}')
 
-# 替换目标文件夹的路径
-folder_path = '/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/discussions'
-modify_and_number_txt_files(folder_path)
 
+if __name__ == '__main__':
+    modify_and_number_txt_files('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/results')
 
 # def convert_txt_to_csv(input_folder, output_folder):
 #     # 获取文件夹中所有txt文件的路径
