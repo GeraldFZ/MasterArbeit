@@ -23,18 +23,20 @@ class Debate:
             lines = file.readlines()
 
 
-            for line in lines[0:]:
+            for index_of_argument_debate, line in enumerate(lines):
                 # match = re.match(r'(?m)^\b(?<!\d)(\d+(\.\d+)*)\b(?=\.\s|$)', line)
                 match = re.match(r'(?m)^\b(?<!\d)(\d+(\.\d+)*)\.\s', line)
 
                 if match:
-                    index = match.group(0)
-                    content = line.replace(match.group(0), '').strip()
-                    relative_polarity= content[:3]
-                    absolute_polarity = -1
-                    self.add_argument(index, content, relative_polarity, absolute_polarity)
-                    if line == lines[0]:
-                        self.debate_topic = content
+                    if index_of_argument_debate >= 1:
+                        index = match.group(0)
+                        text_content = line.replace(match.group(0), '').strip()
+                        relative_polarity= text_content[:3]
+                        content = text_content[4:].strip()
+                        absolute_polarity = -1
+                        self.add_argument(index, content, relative_polarity, absolute_polarity)
+                    if index_of_argument_debate == 0:
+                        self.debate_topic = line.replace(match.group(0), '').strip()
 
 
 
@@ -56,7 +58,7 @@ if __name__ == "__main__":
     debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/dataprocesstest')
 
     for debate in debates:
-        print(debate.debate_topic)
+        print("topic:", debate.debate_topic)
         for argument in debate.arguments:
-            print(f"Argument Index: {argument.index}", argument.content, argument.relative_polarity)
+            print("index:", argument.index,"content:", argument.content, "relative polarity:", argument.relative_polarity)
 
