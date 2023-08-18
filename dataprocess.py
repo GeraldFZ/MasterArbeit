@@ -1,9 +1,6 @@
-import os
 import re
-import pandas as pd
 import os
-from langdetect import detect
-import shutil
+
 
 def modify_and_number_txt_files(folder_path):
     # 获取文件夹中所有txt文件
@@ -19,6 +16,7 @@ def modify_and_number_txt_files(folder_path):
                 # 使用正则表达式找到所有类似于1.2.3.1.2.的序号
 
                 pattern = r'(?m)^\b(?<!\d)(\d+(\.\d+)*)\b(?=\.\s|$)'
+                # pattern = r'(?m)^\b(?<!\d)(\d+(\.\d+)*)\.\s'
                 # pattern = r'(?m)^\b(?<!\d)(\d+(\.\d+)*\.)\b(?=\s|$)'
 
                 matches = re.findall(pattern, line)
@@ -42,34 +40,5 @@ def modify_and_number_txt_files(folder_path):
 
 
 if __name__ == '__main__':
-    modify_and_number_txt_files('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/results')
+    modify_and_number_txt_files('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/dataprocesstest')
 
-# def convert_txt_to_csv(input_folder, output_folder):
-#     # 获取文件夹中所有txt文件的路径
-#     txt_files = [f for f in os.listdir(input_folder) if f.endswith('.txt')]
-#
-#     for txt_file in txt_files:
-#         txt_file_path = os.path.join(input_folder, txt_file)
-#
-#         # 读取txt文件内容，这里假设每个txt文件中的内容以空格分隔，并且有三列
-#         with open(txt_file_path, 'r') as file:
-#             content = file.read()
-#             lines = content.strip().split('\n')
-#             data = [line.split() for line in lines]
-#
-#         # 转换为DataFrame
-#         df = pd.DataFrame(data, columns=['Column1', 'Column2', 'Column3'])
-#
-#         # 将DataFrame保存为csv文件
-#         csv_file_name = os.path.splitext(txt_file)[0] + '.csv'
-#         csv_file_path = os.path.join(output_folder, csv_file_name)
-#         df.to_csv(csv_file_path, index=False)
-#
-
-
-
-# 替换输入和输出文件夹的路径
-# input_folder = 'path/to/input_folder'
-# output_folder = 'path/to/output_folder'
-#
-# convert_txt_to_csv(input_folder, output_folder)
