@@ -1,53 +1,58 @@
 Arguments = [
-    {"index": "2.", "relative_polarity_value": 1},
-    {"index": "2.3.", "relative_polarity_value": 1},
-    {"index": "3.", "relative_polarity_value": 1},
-    {"index": "2.3.2.", "relative_polarity_value": -1}
+    {"index": "2.", "relative_polarity_value": 10},
+    {"index": "2.3.", "relative_polarity_value": -10},
+    {"index": "3.2.", "relative_polarity_value": -80},
+    {"index": "2.3.2.", "relative_polarity_value": -100},
+# {"index": "2.3.2.16.", "relative_polarity_value": -10},
+{"index": "2.3.2.1.", "relative_polarity_value": -20},
+# {"index": "2.3.2.16.200.", "relative_polarity_value": -20},
+{"index": "3.", "relative_polarity_value": -10},
+
+
 ]
 
-#
-# def absolute_polarity_compute(index, relative_polarity_value):
-#     # list_index = index.split(".")  # Split the index into a list of parts
-#
-#     return absolute_polarity
-
+def find_last_dot(list):
+    dot_positions = [i for i, char in enumerate(list) if char == "."]
+    if len(dot_positions) >= 2:
+        last_dot_position = dot_positions[-2]
+        return last_dot_position
+    else:
+        return None
 
 if __name__ == '__main__':
+    absolute_polarity = None
+
     for argument in Arguments:
-        index = argument["index"]
+        origin_index = argument["index"]
         relative_polarity_value = argument["relative_polarity_value"]
-        print(index, relative_polarity_value)
-        list_index = list(index)
-        # print(list_index)
+        origin_index_list = list(origin_index)
+
+        print("index:", origin_index, "relative_polarity_value:", relative_polarity_value)
 
         result = relative_polarity_value
+        last_dot_position = find_last_dot(origin_index)
+        print(last_dot_position)
+        if origin_index_list.count(".") >= 2:
+            current_index_list = origin_index_list
+            while current_index_list.count(".") >= 2:
 
-        if list_index.count(".") != 1:
-            print(list_index.count(".") != 1)
-            for argument in Arguments:
-                print(argument["index"], "".join(list_index[:-2]))
-                # 将下边的判断条件右边改成找到上一个"."的位置而不是简单地减二
-                if argument["index"] == "".join(list_index[:-2]):
-                    result = argument["relative_polarity_value"] * result
-                    list_index = "".join(list_index[:-2])
-                    # print(list_index)
-            absolute_polarity = result
+                for argument in Arguments:
+                    if last_dot_position is not None:
+
+                        current_index_list = "".join(current_index_list[:last_dot_position + 1])
+                    if last_dot_position is not None:
+
+                        if argument["index"] == current_index_list:
+                            result = argument["relative_polarity_value"] * result
+                            # if last_dot_position is not None:
+
+                            last_dot_position = find_last_dot(current_index_list)
+                        absolute_polarity = result
         else:
             absolute_polarity = relative_polarity_value
 
 
+
+
         print("absolute_polarity=", absolute_polarity)
 
-        # absolute_polarity_compute(index, relative_polarity_value)
-        # print("absolute_polarity=", absolute_polarity_compute(index, relative_polarity_value))
-
-# def reverse_index_numbering(lst):
-#     dot_positions = [i for i, char in enumerate(lst) if char == "."]
-#     dot_positions.reverse()
-#     numbered_positions = {pos: i+1 for i, pos in enumerate(dot_positions)}
-#     return numbered_positions
-#
-# # 测试列表
-# test_list = ["a", "b", ".", "c", ".", "d", "e", ".", "f"]
-# numbered_positions = reverse_index_numbering(test_list)
-# print(numbered_positions)
