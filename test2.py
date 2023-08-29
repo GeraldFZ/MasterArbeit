@@ -11,14 +11,10 @@ if __name__ == '__main__':
     Arguments = [
         {"index": "2.", "relative_polarity_value": 10},
         {"index": "2.3.", "relative_polarity_value": -10},
-        {"index": "2.3.2.16.200.", "relative_polarity_value": -20},
-
         {"index": "3.2.", "relative_polarity_value": -80},
         {"index": "2.3.2.", "relative_polarity_value": -100},
-        {"index": "2.3.2.16.", "relative_polarity_value": -10},
         {"index": "2.3.2.1.", "relative_polarity_value": -20},
         {"index": "3.", "relative_polarity_value": -10},
-
     ]
 
     for argument in Arguments:
