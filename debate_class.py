@@ -141,7 +141,7 @@ class Debate:
                     text_content = line.replace(match.group(0), '').strip()
                     relative_polarity = "Pro"
                     content = text_content.strip()
-                    relative_polarity_value = 10 if relative_polarity == "Pro" else -10
+                    relative_polarity_value = 1 if relative_polarity == "Pro" else -1
 
 
                     self.add_argument(index, content, relative_polarity, relative_polarity_value)
@@ -150,7 +150,7 @@ class Debate:
                     index = match.group(0)
                     text_content = line.replace(match.group(0), '').strip()
                     relative_polarity = text_content[:3].strip()
-                    relative_polarity_value = 10 if relative_polarity == "Pro" else -10
+                    relative_polarity_value = 1 if relative_polarity == "Pro" else -1
                     content = text_content[4:].strip()
                     self.add_argument(index, content, relative_polarity, relative_polarity_value)
 
@@ -172,7 +172,7 @@ def load_debates_from_folder(folder_path):
 
 if __name__ == "__main__":
     folder_path = "your_folder_path"  # 替换为实际文件夹路径
-    debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/dataprocesstest')
+    debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/results')
 
     for debate in debates:
         print("topic:", debate.debate_topic)
