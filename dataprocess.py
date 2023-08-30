@@ -40,5 +40,5 @@ def modify_and_number_txt_files(folder_path):
 
 
 if __name__ == '__main__':
-    modify_and_number_txt_files('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/results')
+    modify_and_number_txt_files('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/dataprocesstest')
 
