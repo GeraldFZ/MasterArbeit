@@ -34,6 +34,31 @@ class Argument:
         absolute_polarity = result
         return absolute_polarity
         print("absolute_polarity=", absolute_polarity)
+
+    def relatedness_compute(self, Arguments):
+        index = self.index.strip(".")
+        index_list = index.split(".")
+        distance = 0  # 默认值
+        relatedness = 1
+
+        for argument in Arguments:
+            index_2 = argument.index.strip(".")
+            index_2_list = index_2.split(".")
+            if index_list == index_2_list:
+                distance = 0
+                relatedness = 1
+            else:
+                for i in range(min(len(index_list), len(index_2_list))):
+                    if index_list[i] != index_2_list[i]:
+                        print("haha", i)
+                        print(index_list[i], index_2_list[i])
+
+                        distance = len(index_list[i:]) + len(index_2_list[i:])
+                        relatedness = 1 / distance
+                        break
+        return index_list, index_2_list, distance, relatedness
+
+
 if __name__ == '__main__':
     Arguments = [
         Argument("2.", 10),
@@ -44,6 +69,7 @@ if __name__ == '__main__':
         Argument("3.", -10),
     ]
     for argument in Arguments:
-        print(argument.absolute_polarity_compute(Arguments))
+        print(argument.relatedness_compute(Arguments))
+
 
 

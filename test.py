@@ -58,28 +58,15 @@
 #
 
 
-i = 1
+list1 = [1, 2, 3, 4, 6]
+list2 = [1, 2, 3]
 
-while i <= 7:
-    print("Current value of i:", i)
-
-    if i == 6:
-        print("i is 6, exiting the loop.")
+for i, (item1, item2) in enumerate(zip(list1, list2)):
+    if item1 != item2:
+        print(f"The first difference is at index {i}: {item1} != {item2}")
         break
-
-    for j in range(1, i + 1):
-        i += 1
-        print(j, end=" ")
-
-    print()  # 打印完一轮嵌套循环后换行
-
-    i += 1
-
-print("Loop finished.")
-
-
-
-
+else:
+    print("Same")
 
 
 
