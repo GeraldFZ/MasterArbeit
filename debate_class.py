@@ -7,7 +7,7 @@ class Debate:
         self.arguments = []
 
     class Argument:
-        def __init__(self, index, content, relative_polarity,relative_polarity_value ):
+        def __init__(self, index, content, relative_polarity, relative_polarity_value):
             self.index = index
             self.content = content
             self.relative_polarity = relative_polarity
@@ -22,7 +22,78 @@ class Debate:
             else:
                 return None
 
+        def distance_relatedness_compute(self, Arguments):
+            index = self.index.strip(".")
+            index_list = index.split(".")
+            # distance = 0  # 默认值
+            # relatedness = 1
+            relatedness_distance_set = []
 
+            for argument in Arguments:
+                index_2 = argument.index.strip(".")
+                index_2_list = index_2.split(".")
+                if index_list == index_2_list:
+                    # print("same", index_list, index_2_list)
+                    # print("相同", index_list, index_2_list)
+
+                    distance = 0
+                    relatedness = 1
+                    return_index_1 = index_list
+                    return_index_2 = index_2_list
+                    relatedness_distance_set.append(
+                        {"index_1": return_index_1, "index_2": return_index_2, "distance": distance,
+                         "relatedness": relatedness})
+
+
+
+                elif len(index_list) == len(index_2_list) and index_list != index_2_list:
+                    # print("长短一样但不相同", index_list, index_2_list)
+
+                    for i in range(len(index_list)):
+
+                        if index_list[i] != index_2_list[i]:
+                            # print(item1, item2)
+
+                            distance = len(index_list[i:]) + len(index_2_list[i:])
+                            # print(index_list.index(item1),index_2_list.index(item2))
+                            relatedness = 1 / distance
+                            return_index_1 = index_list
+                            return_index_2 = index_2_list
+                            relatedness_distance_set.append(
+                                {"index_1": return_index_1, "index_2": return_index_2, "distance": distance,
+                                 "relatedness": relatedness})
+
+
+                elif len(index_list) != len(index_2_list):
+                    long_list = max(index_list, index_2_list, key=len)
+                    short_list = min(index_list, index_2_list, key=len)
+                    if all(short_elem == long_elem for short_elem, long_elem in zip(short_list, long_list)):
+                        # print("长短不一而且第一个不同的元素没有出现在短的列表中", index_list, index_2_list)
+                        distance = len(long_list) - len(short_list)
+                        # print(long_list,short_list)
+                        relatedness = 1 / distance
+                        return_index_1 = index_list
+                        return_index_2 = index_2_list
+                        relatedness_distance_set.append(
+                            {"index_1": return_index_1, "index_2": return_index_2, "distance": distance,
+                             "relatedness": relatedness})
+
+
+                    else:
+                        # print("长短不一但是第一个不同的元素出现在短的列表中", index_list, index_2_list, range(min(len(index_list), len(index_2_list)) - 1))
+
+                        for p in range(min(len(index_list), len(index_2_list))):
+                            if index_list[p] != index_2_list[p]:
+                                # print(p)
+                                distance = len(index_list[p:]) + len(index_2_list[p:])
+                                relatedness = 1 / distance
+                                return_index_1 = index_list
+                                return_index_2 = index_2_list
+                                relatedness_distance_set.append(
+                                    {"index_1": return_index_1, "index_2": return_index_2, "distance": distance,
+                                     "relatedness": relatedness})
+
+            return relatedness_distance_set
 
         def absolute_polarity_compute(self, Arguments):
             origin_index = self.index.strip()
@@ -58,6 +129,13 @@ class Debate:
                     return result
 
             return result
+        def test(self, Arguments):
+            num = []
+            for argument in Arguments:
+                num.append({"index_1": "return_index_1", "index_2": "return_index_2", "distance": "distance",
+                                     "relatedness": "relatedness"})
+            return num
+
 
     def add_argument(self,index, content, relative_polarity, relative_polarity_value):
         # if relative_polarity == "pro":
@@ -117,42 +195,31 @@ if __name__ == "__main__":
 
     for debate in debates:
         print("topic:", debate.debate_topic)
+        absolute_polarity_set = []
+
+# 添加绝对极值属性
         for argument in debate.arguments:
+            absolute_polarity = argument.absolute_polarity_compute(debate.arguments)
+            absolute_polarity_set.append(absolute_polarity)
+        # print(absolute_polarity_set,type(absolute_polarity_set))
+        for argument, absolute_polarity in zip(debate.arguments, absolute_polarity_set):
+            argument.absolute_polarity = absolute_polarity
+
             # argument.absolute_polarity_compute(debate.arguments)
             # print(argument)
             # print(argument.absolute_polarity_compute(debate.arguments))
 
-            print("index:", argument.index,"content:", argument.content, "relative polarity:", argument.relative_polarity, "relative polarity value:", argument.relative_polarity_value, "absolute polarity:", argument.absolute_polarity_compute(debate.arguments))
 
 
-# if __name__ == "__main__":
-#     folder_path = "your_folder_path"  # 替换为实际文件夹路径
-#     debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/dataprocesstest')
-#
-#     # 创建索引和相对极性值的映射
-#     relative_polarity_mapping = {}
-#     for debate in debates:
+# 添加距离/相关性列表属性
 #         for argument in debate.arguments:
-#             relative_polarity_mapping[argument.index] = argument.relative_polarity_value
-#
-#     for debate in debates:
-#         print("topic:", debate.debate_topic)
-#         for argument in debate.arguments:
-#             absolute_polarity = argument.absolute_polarity_compute(relative_polarity_mapping)
-#             print("index:", argument.index, "content:", argument.content, "relative polarity:", argument.relative_polarity, "relative polarity value:", argument.relative_polarity_value, "absolute polarity:", absolute_polarity)
+#             # print(argument.distance_relatedness_set)
 
-        # def absolute_polarity_compute(self, relative_polarity_mapping):
-        #     result = self.relative_polarity_value
+        # for argument in debate.arguments:
+        #     argument.distance_relatedness_set = argument.distance_relatedness_compute(debate.arguments)
         #
-        #     current_index_list = list(self.index)
-        #     last_dot_position = self.find_last_dot(current_index_list)
-        #
-        #     while last_dot_position is not None:
-        #         index_key = "".join(current_index_list[:last_dot_position + 1])
-        #         if index_key in relative_polarity_mapping:
-        #             result *= relative_polarity_mapping[index_key]
-        #
-        #         current_index_list = current_index_list[:last_dot_position+1]
-        #         last_dot_position = self.find_last_dot(current_index_list)
-        #
-        #     return result
+        #     print(debate.arguments[1], type(debate.arguments))
+        print(debate)
+
+            # print("index:", argument.index, "content:", argument.content, "relative polarity:", argument.relative_polarity, "relative polarity value:", argument.relative_polarity_value,"absolute polarity:", argument.absolute_polarity, "argumentpair num:", len(argument.distance_relatedness_compute(debate.arguments)), len(debate.arguments))
+

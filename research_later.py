@@ -58,3 +58,38 @@
 #             return result
 #
 #         # break  # 终止外部循环
+
+
+
+
+# if __name__ == "__main__":
+#     folder_path = "your_folder_path"  # 替换为实际文件夹路径
+#     debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/dataprocesstest')
+#
+#     # 创建索引和相对极性值的映射
+#     relative_polarity_mapping = {}
+#     for debate in debates:
+#         for argument in debate.arguments:
+#             relative_polarity_mapping[argument.index] = argument.relative_polarity_value
+#
+#     for debate in debates:
+#         print("topic:", debate.debate_topic)
+#         for argument in debate.arguments:
+#             absolute_polarity = argument.absolute_polarity_compute(relative_polarity_mapping)
+#             print("index:", argument.index, "content:", argument.content, "relative polarity:", argument.relative_polarity, "relative polarity value:", argument.relative_polarity_value, "absolute polarity:", absolute_polarity)
+
+        # def absolute_polarity_compute(self, relative_polarity_mapping):
+        #     result = self.relative_polarity_value
+        #
+        #     current_index_list = list(self.index)
+        #     last_dot_position = self.find_last_dot(current_index_list)
+        #
+        #     while last_dot_position is not None:
+        #         index_key = "".join(current_index_list[:last_dot_position + 1])
+        #         if index_key in relative_polarity_mapping:
+        #             result *= relative_polarity_mapping[index_key]
+        #
+        #         current_index_list = current_index_list[:last_dot_position+1]
+        #         last_dot_position = self.find_last_dot(current_index_list)
+        #
+        #     return result
