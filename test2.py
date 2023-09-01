@@ -50,43 +50,55 @@ class Debate:
             for argument in Arguments:
                 index_2 = argument.index.strip(".")
                 index_2_list = index_2.split(".")
-                if index_list == index_2_list:
-                    # print("same", index_list, index_2_list)
-                    # print("相同", index_list, index_2_list)
 
-                    distance = 0
-                    relatedness = 1
-                    return_index_1 = index_list
-                    return_index_2 = index_2_list
-                    relatedness_distance_set.append(
-                        {"index_1": return_index_1, "index_2": return_index_2, "distance": distance,
-                         "relatedness": relatedness})
-
-
-
-                # elif len(index_list) == len(index_2_list) and index_list != index_2_list:
-                #     # print("长短一样但不相同", index_list, index_2_list)
+                # common_length = min(len(index_list), len(index_2_list))
+                # for i in range(common_length):
+                #     if index_list[i] != index_2_list[i]:
+                #         break
                 #
-                #     for i in range(len(index_list)):
-                #
-                #         if index_list[i] != index_2_list[i]:
-                #             # print(item1, item2)
-                #
-                #             distance = len(index_list[i:]) + len(index_2_list[i:])
-                #             # print(index_list.index(item1),index_2_list.index(item2))
-                #             relatedness = 1 / distance
-                #             return_index_1 = index_list
-                #             return_index_2 = index_2_list
-                #             relatedness_distance_set.append(
-                #                 {"index_1": return_index_1, "index_2": return_index_2, "distance": distance,
-                #                  "relatedness": relatedness})
+                # distance = (len(index_list) - i) + (len(index_2_list) - i)
+                if len(index_list) == len(index_2_list):
+                    if index_list == index_2_list:
+                        # print("same", index_list, index_2_list)
+                        # print("相同", index_list, index_2_list)
+
+                        distance = 0
+                        relatedness = 1
+                        return_index_1 = index_list
+                        return_index_2 = index_2_list
+                        relatedness_distance_set.append(
+                            {"index_1": return_index_1, "index_2": return_index_2, "distance": distance,
+                             "relatedness": relatedness})
+                        print("相同", relatedness_distance_set)
+
+
+
+
+                    if index_list != index_2_list:
+                        # print("长短一样但不相同", index_list, index_2_list)
+
+                        for i in range(len(index_list)):
+
+                            if index_list[i] != index_2_list[i]:
+                                # print(item1, item2)
+
+                                distance = len(index_list[i:]) + len(index_2_list[i:])
+                                # print(index_list.index(item1),index_2_list.index(item2))
+                                relatedness = 1 / distance
+                                return_index_1 = index_list
+                                return_index_2 = index_2_list
+                                relatedness_distance_set.append(
+                                    {"index_1": return_index_1, "index_2": return_index_2, "distance": distance,
+                                     "relatedness": relatedness})
+                                print("长短一样但不相同", relatedness_distance_set)
+
 
 
                 elif len(index_list) != len(index_2_list):
                     long_list = max(index_list, index_2_list, key=len)
                     short_list = min(index_list, index_2_list, key=len)
                     if all(short_elem == long_elem for short_elem, long_elem in zip(short_list, long_list)):
-                        # print("长短不一而且第一个不同的元素没有出现在短的列表中", index_list, index_2_list)
+                        # print("长短不一而且第一个不同的元素没有出现在短的列表中", relatedness_distance_set)
                         distance = len(long_list) - len(short_list)
                         # print(long_list,short_list)
                         relatedness = 1 / distance
@@ -95,10 +107,11 @@ class Debate:
                         relatedness_distance_set.append(
                             {"index_1": return_index_1, "index_2": return_index_2, "distance": distance,
                              "relatedness": relatedness})
+                        print("长短不一而且第一个不同的元素没有出现在短的列表中", relatedness_distance_set)
+
 
 
                     else:
-                        # print("长短不一但是第一个不同的元素出现在短的列表中", index_list, index_2_list, range(min(len(index_list), len(index_2_list)) - 1))
 
                         for p in range(min(len(index_list), len(index_2_list))):
                             if index_list[p] != index_2_list[p]:
@@ -110,61 +123,25 @@ class Debate:
                                 relatedness_distance_set.append(
                                     {"index_1": return_index_1, "index_2": return_index_2, "distance": distance,
                                      "relatedness": relatedness})
+                                print("长短不一但是第一个不同的元素出现在短的列表中", relatedness_distance_set)
+                                break
 
             return relatedness_distance_set
-        # def distance_relatedness_compute(self, Arguments):
-        #     index = self.index.strip(".")
-        #     index_list = index.split(".")
-        #     relatedness_distance_set = []
+        # def calculate_distance(node_path1, node_path2):
+        #     path1 = node_path1.split('.')
+        #     path2 = node_path2.split('.')
         #
-        #     for argument in Arguments:
-        #         index_2 = argument.index.strip(".")
-        #         index_2_list = index_2.split(".")
-        #         if index_list == index_2_list:
-        #             distance = 0
-        #             relatedness = 1
-        #             return_index_1 = index_list
-        #             return_index_2 = index_2_list
-        #             relatedness_distance_set.append(
-        #                 {"index_1": return_index_1, "index_2": return_index_2, "distance": distance,
-        #                  "relatedness": relatedness})
+        #     common_length = min(len(path1), len(path2))
+        #     for i in range(common_length):
+        #         if path1[i] != path2[i]:
+        #             break
         #
-        #         elif len(index_list) == len(index_2_list) and index_list != index_2_list:
-        #             for i in range(len(index_list)):
-        #                 if index_list[i] != index_2_list[i]:
-        #                     distance = len(index_list[i:]) + len(index_2_list[i:])
-        #                     relatedness = 1 / distance
-        #                     return_index_1 = index_list
-        #                     return_index_2 = index_2_list
-        #                     relatedness_distance_set.append(
-        #                         {"index_1": return_index_1, "index_2": return_index_2, "distance": distance,
-        #                          "relatedness": relatedness})
-        #
-        #         elif len(index_list) != len(index_2_list):
-        #             long_list = max(index_list, index_2_list, key=len)
-        #             short_list = min(index_list, index_2_list, key=len)
-        #             if all(short_elem == long_elem for short_elem, long_elem in zip(short_list, long_list)):
-        #                 distance = len(long_list) - len(short_list)
-        #                 relatedness = 1 / distance
-        #                 return_index_1 = index_list
-        #                 return_index_2 = index_2_list
-        #                 relatedness_distance_set.append(
-        #                     {"index_1": return_index_1, "index_2": return_index_2, "distance": distance,
-        #                      "relatedness": relatedness})
-        #
-        #             else:
-        #                 for p in range(min(len(index_list), len(index_2_list))):
-        #                     if index_list[p] != index_2_list[p]:
-        #                         distance = len(index_list[p:]) + len(index_2_list[p:])
-        #                         relatedness = 1 / distance
-        #                         return_index_1 = index_list
-        #                         return_index_2 = index_2_list
-        #                         relatedness_distance_set.append(
-        #                             {"index_1": return_index_1, "index_2": return_index_2, "distance": distance,
-        #                              "relatedness": relatedness})
-        #
-        #     return relatedness_distance_set
+        #     distance = (len(path1) - i) + (len(path2) - i)
+        #     return distance
 
+        # 示例用法
+
+        # print(distance)  # 输出：2
 
 
 if __name__ == '__main__':
