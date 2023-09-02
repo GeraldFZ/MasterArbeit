@@ -216,8 +216,8 @@ def load_debates_from_folder(folder_path):
 
 if __name__ == "__main__":
     folder_path = "your_folder_path"  # 替换为实际文件夹路径
-    debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/results')
-
+    # debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/results')
+    debates = load_debates_from_folder('/home/users0/fanze/masterarbeit/results')
     for debate in debates:
         print("topic:", debate.debate_topic)
         absolute_polarity_set = []
