@@ -23,14 +23,14 @@ class Debate:
                 return None
 
         def distance_relatedness_compute(self, Arguments):
-            index = self.index.strip(".")
+            index = self.index.strip(". ")
             index_list = index.split(".")
             # distance = 0  # 默认值
             # relatedness = 1
             relatedness_distance_set = []
 
             for argument in Arguments:
-                index_2 = argument.index.strip(".")
+                index_2 = argument.index.strip(". ")
                 index_2_list = index_2.split(".")
 
                 # common_length = min(len(index_list), len(index_2_list))
@@ -216,8 +216,8 @@ def load_debates_from_folder(folder_path):
 
 if __name__ == "__main__":
     folder_path = "your_folder_path"  # 替换为实际文件夹路径
-    # debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/results')
-    debates = load_debates_from_folder('/home/users0/fanze/masterarbeit/results')
+    debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/results')
+    # debates = load_debates_from_folder('/home/users0/fanze/masterarbeit/englishdebates')
     for debate in debates:
         print("topic:", debate.debate_topic)
         absolute_polarity_set = []
@@ -250,6 +250,6 @@ if __name__ == "__main__":
         #     print(debate.arguments[1], type(debate.arguments))
         # print(debate)
 
-            print("index:", argument.index, "content:", argument.content, "relative polarity:", argument.relative_polarity, "relative polarity value:", argument.relative_polarity_value,"absolute polarity:", argument.absolute_polarity , "argumentpair num:", len(argument.distance_relatedness_set), len(debate.arguments))
+            print("index:", argument.index, "content:", argument.content, "relative polarity:", argument.relative_polarity, "relative polarity value:", argument.relative_polarity_value,"absolute polarity:", argument.absolute_polarity , "argumentpair num:", argument.distance_relatedness_set, len(argument.distance_relatedness_set), len(debate.arguments))
 
 

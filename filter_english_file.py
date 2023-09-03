@@ -21,6 +21,9 @@ if __name__ == "__main__":
 
     # print(filter_english_txt_files_and_copy('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/discussions', '/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/results'))
     english_txt_files = filter_english_txt_files_and_copy('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/discussions', '/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/results')
+    # '/home/users0/fanze/masterarbeit/results'
+    # english_txt_files = filter_english_txt_files_and_copy('/home/users0/fanze/masterarbeit/origindata/origindata/discussions', '/home/users0/fanze/masterarbeit/englishdebates')
+
     num = 0
     if len(english_txt_files) > 0:
         print("英文文本文件列表：")
