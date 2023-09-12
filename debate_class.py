@@ -1,5 +1,6 @@
 import os
 import re
+import random
 
 class Debate:
     def __init__(self, debate_topic):
@@ -201,6 +202,7 @@ class Debate:
 
 
 
+
 def load_debates_from_folder(folder_path):
     debate_instances = []
     txt_files = [file for file in os.listdir(folder_path) if file.endswith('.txt')]
@@ -215,7 +217,6 @@ def load_debates_from_folder(folder_path):
 
 
 if __name__ == "__main__":
-    folder_path = "your_folder_path"  # 替换为实际文件夹路径
     debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/results')
     # debates = load_debates_from_folder('/home/users0/fanze/masterarbeit/englishdebates')
     for debate in debates:
@@ -234,21 +235,9 @@ if __name__ == "__main__":
         for argument, absolute_polarity in zip(debate.arguments, absolute_polarity_set):
             argument.absolute_polarity = absolute_polarity
 
-            # argument.absolute_polarity_compute(debate.arguments)
-            # print(argument)
-            # print(argument.absolute_polarity_compute(debate.arguments))
-
-
-
-# 添加距离/相关性列表属性
-#         for argument in debate.arguments:
-#             # print(argument.distance_relatedness_set)
-
-        # for argument in debate.arguments:
             argument.distance_relatedness_set = argument.distance_relatedness_compute(debate.arguments)
 
-        #     print(debate.arguments[1], type(debate.arguments))
-        # print(debate)
+
 
             print("index:", argument.index, "content:", argument.content, "relative polarity:", argument.relative_polarity, "relative polarity value:", argument.relative_polarity_value,"absolute polarity:", argument.absolute_polarity , "argumentpair num:", argument.distance_relatedness_set, len(argument.distance_relatedness_set), len(debate.arguments))
 
