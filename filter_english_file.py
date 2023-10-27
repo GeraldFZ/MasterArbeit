@@ -20,7 +20,7 @@ def filter_english_txt_files_and_copy(folder_path, destination_folder):
 if __name__ == "__main__":
 
     # print(filter_english_txt_files_and_copy('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/discussions', '/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/results'))
-    english_txt_files = filter_english_txt_files_and_copy('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/discussions', '/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/results')
+    english_txt_files = filter_english_txt_files_and_copy('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/testsample', '/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/testsample_english')
     # '/home/users0/fanze/masterarbeit/results'
     # english_txt_files = filter_english_txt_files_and_copy('/home/users0/fanze/masterarbeit/origindata/origindata/discussions', '/home/users0/fanze/masterarbeit/englishdebates')
 
