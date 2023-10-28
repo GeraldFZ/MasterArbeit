@@ -221,8 +221,11 @@ def load_debates_from_folder(folder_path):
 
 
 if __name__ == "__main__":
-    debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/testsample_english')
-    # debates = load_debates_from_folder('/home/users0/fanze/masterarbeit/englishdebates')
+    # debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/englishdebates')
+    # debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/testsample_english')
+    debates = load_debates_from_folder('/home/users0/fanze/masterarbeit/englishdebates')
+
+    argument_pair_num_list = []
     for debate in debates:
         print("topic:", debate.debate_topic)
         absolute_polarity_set = []
@@ -237,14 +240,22 @@ if __name__ == "__main__":
             absolute_polarity_set.append(absolute_polarity)
         # print(absolute_polarity_set,type(absolute_polarity_set))
         # for argument, absolute_polarity in zip(debate.arguments, absolute_polarity_set):
+        debate_pair_num = 0
         for count1, (argument, absolute_polarity) in enumerate(zip(debate.arguments, absolute_polarity_set), start=1):
 
             argument.absolute_polarity = absolute_polarity
 
             argument.distance_relatedness_set = argument.distance_relatedness_compute(debate.arguments, count1)
+            debate_pair_num = debate_pair_num + count1
 
 
 
-            print("index:", argument.index, "content:", argument.content, "relative polarity:", argument.relative_polarity, "relative polarity value:", argument.relative_polarity_value,"absolute polarity:", argument.absolute_polarity , "argumentpair num:", argument.distance_relatedness_set, len(argument.distance_relatedness_set), len(debate.arguments))
+
+
+            print("index:", argument.index, "content:", argument.content, "relative polarity:", argument.relative_polarity, "relative polarity value:", argument.relative_polarity_value,"absolute polarity:", argument.absolute_polarity , "argumentpair num:", argument.distance_relatedness_set, "len(argument.distance_relatedness_set):", len(argument.distance_relatedness_set), len(debate.arguments))
+        # print("debate_pair_num：", debate_pair_num)
+        argument_pair_num_list.append(debate_pair_num)
+    print("argument_pair_num_list:", argument_pair_num_list)
+    print("total argument pairs:", sum(argument_pair_num_list))
 
 
