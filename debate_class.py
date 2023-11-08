@@ -1,6 +1,8 @@
 import os
 import re
 import random
+import pandas
+import dataprocess
 
 class Debate:
     def __init__(self, debate_topic):
@@ -50,10 +52,13 @@ class Debate:
 
                             distance = 0
                             relatedness = 1
-                            return_index_1 = index_list
-                            return_index_2 = index_2_list
+                            return_index_1 = index+"."
+                            return_index_2 = index_2+"."
+                            content_2 = argument.content
+                            content_1 = self.content
+                            polarity_2 = argument.absolute_polarity_compute(Arguments)
                             relatedness_distance_set.append(
-                                {"index_1": return_index_1, "index_2": return_index_2, "distance": distance,
+                                {"index_1": return_index_1, "content_1": content_1, "index_2": return_index_2, "content_2": content_2, "polarity_2": polarity_2,  "distance": distance,
                                  "relatedness": relatedness})
                             # print("相同", relatedness_distance_set)
 
@@ -68,10 +73,14 @@ class Debate:
                                     distance = len(index_list[i:]) + len(index_2_list[i:])
                                     # print(index_list.index(item1),index_2_list.index(item2))
                                     relatedness = 1 / distance
-                                    return_index_1 = index_list
-                                    return_index_2 = index_2_list
+                                    return_index_1 = index+"."
+                                    return_index_2 = index_2+"."
+                                    content_1 = self.content
+                                    content_2 = argument.content
+                                    polarity_2 = argument.absolute_polarity_compute(Arguments)
+
                                     relatedness_distance_set.append(
-                                        {"index_1": return_index_1, "index_2": return_index_2, "distance": distance,
+                                        {"index_1": return_index_1, "content_1": content_1, "index_2": return_index_2, "content_2": content_2, "polarity_2": polarity_2, "distance": distance,
                                          "relatedness": relatedness})
                                     break
                                     # print("长短一样但不相同", relatedness_distance_set)
@@ -86,10 +95,14 @@ class Debate:
                             distance = len(long_list) - len(short_list)
                             # print(long_list,short_list)
                             relatedness = 1 / distance
-                            return_index_1 = index_list
-                            return_index_2 = index_2_list
+                            return_index_1 = index+"."
+                            content_1 = self.content
+                            return_index_2 = index_2+"."
+                            content_2 = argument.content
+                            polarity_2 = argument.absolute_polarity_compute(Arguments)
+
                             relatedness_distance_set.append(
-                                {"index_1": return_index_1, "index_2": return_index_2, "distance": distance,
+                                {"index_1": return_index_1, "content_1": content_1, "index_2": return_index_2, "content_2": content_2, "polarity_2": polarity_2, "distance": distance,
                                  "relatedness": relatedness})
                             # print("长短不一而且第一个不同的元素没有出现在短的列表中", relatedness_distance_set)
 
@@ -102,10 +115,14 @@ class Debate:
                                     # print(p)
                                     distance = len(index_list[p:]) + len(index_2_list[p:])
                                     relatedness = 1 / distance
-                                    return_index_1 = index_list
-                                    return_index_2 = index_2_list
+                                    return_index_1 = index+"."
+                                    return_index_2 = index_2+"."
+                                    content_1 = self.content
+                                    content_2 = argument.content
+                                    polarity_2 = argument.absolute_polarity_compute(Arguments)
+
                                     relatedness_distance_set.append(
-                                        {"index_1": return_index_1, "index_2": return_index_2, "distance": distance,
+                                        {"index_1": return_index_1, "content_1": content_1, "index_2": return_index_2, "content_2": content_2, "polarity_2": polarity_2, "distance": distance,
                                          "relatedness": relatedness})
                                     # print("长短不一但是第一个不同的元素出现在短的列表中", relatedness_distance_set)
                                     break
@@ -165,6 +182,27 @@ class Debate:
                                      "relatedness": "relatedness"})
             return num
 
+    # def to_dataframe(self, index_1, content_1, index_2, content_2, absolute_polarity_1, absolute_polarity_2, distance):
+    #     # 将数据组织成字典，其中键是列名，值是数据
+    #     data = []
+    #     data.append({
+    #         "Index1": index_1,
+    #         "Content1": content_1,
+    #         "Index2": index_2,
+    #         "Content2": content_2,
+    #         "absolute_polarity1": absolute_polarity_1,
+    #         "absolute_polarity2": absolute_polarity_2,
+    #         "distance": distance
+    #
+    #
+    #     })
+    #
+    #     # 创建一个 Pandas DataFrame
+    #     df = pandas.DataFrame(data)
+    #
+    #     return df
+    #
+
 
     def add_argument(self,index, content, relative_polarity, relative_polarity_value):
         # if relative_polarity == "pro":
@@ -222,13 +260,16 @@ def load_debates_from_folder(folder_path):
 
 if __name__ == "__main__":
     # debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/englishdebates')
-    # debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/testsample_english')
-    debates = load_debates_from_folder('/home/users0/fanze/masterarbeit/englishdebates')
+    debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/testsample_english/')
+    # debates = load_debates_from_folder('/home/users0/fanze/masterarbeit/englishdebates')
+    # debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/increasing-water-supply-in-water-scarce-southern-california-13225')
+
 
     argument_pair_num_list = []
     for debate in debates:
         print("topic:", debate.debate_topic)
         absolute_polarity_set = []
+        csv_set = []
 
 
 
@@ -248,14 +289,44 @@ if __name__ == "__main__":
             argument.distance_relatedness_set = argument.distance_relatedness_compute(debate.arguments, count1)
             debate_pair_num = debate_pair_num + count1
 
+            # print("index:", argument.index, "content:", argument.content, "relative polarity:", argument.relative_polarity, "relative polarity value:", argument.relative_polarity_value,"absolute polarity:", argument.absolute_polarity , "argumentpair num:", argument.distance_relatedness_set, "len(argument.distance_relatedness_set):", len(argument.distance_relatedness_set), len(debate.arguments),"", "")
+            # index_2 = (item['index_2'] for item in argument.distance_relatedness_set)
+            # print(index_2)
+            # debate.to_dataframe(argument.index, argument.content,  next(item['content_2'] for item in argument.distance_relatedness_set if item['index_2'] == ['24', '7', '1']))
+
+
+
+            for item in argument.distance_relatedness_set:
+                item['polarity_1'] = argument.absolute_polarity
+                item['polarity_consistency'] = 1 if item['polarity_1'] == item['polarity_2'] else -1
+
+
+                csv_set.append(item)
+
+
+
+        print(csv_set)
+        print(
+                "**************************************************************************************************************************************************")
+        print(
+                "**************************************************************************************************************************************************")
+        df = pandas.DataFrame(csv_set)
+        filenum_index = argument.index.find(".")
+        if filenum_index != -1:
+            filenum = argument.index[:filenum_index]
+        else:
+            filenum = argument.index
+
+        output_folder = "/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/csv_sample"
+        output_file = str(filenum) + ".csv"
+        df.to_csv(f"{output_folder}/{output_file}", index= False)
 
 
 
 
-            print("index:", argument.index, "content:", argument.content, "relative polarity:", argument.relative_polarity, "relative polarity value:", argument.relative_polarity_value,"absolute polarity:", argument.absolute_polarity , "argumentpair num:", argument.distance_relatedness_set, "len(argument.distance_relatedness_set):", len(argument.distance_relatedness_set), len(debate.arguments))
         # print("debate_pair_num：", debate_pair_num)
         argument_pair_num_list.append(debate_pair_num)
-    print("argument_pair_num_list:", argument_pair_num_list)
-    print("total argument pairs:", sum(argument_pair_num_list))
+    # print("argument_pair_num_list:", argument_pair_num_list)
+    # print("total argument pairs:", sum(argument_pair_num_list))
 
 
