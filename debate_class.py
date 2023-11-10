@@ -293,8 +293,8 @@ def load_debates_from_folder(folder_path):
 
 
 if __name__ == "__main__":
-    debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/englishdebates')
-    # debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/testsample_english/')
+    # debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/englishdebates')
+    debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/testsample_english/')
     # debates = load_debates_from_folder('/home/users0/fanze/masterarbeit/englishdebates')
     # debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/increasing-water-supply-in-water-scarce-southern-california-13225')
 
@@ -345,16 +345,16 @@ if __name__ == "__main__":
                 "**************************************************************************************************************************************************")
         print(
                 "**************************************************************************************************************************************************")
-        # df = pandas.DataFrame(csv_set)
-        # filenum_index = argument.index.find(".")
-        # if filenum_index != -1:
-        #     filenum = argument.index[:filenum_index]
-        # else:
-        #     filenum = argument.index
-        #
-        # output_folder = "/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/csv_sample"
-        # output_file = str(filenum) + ".csv"
-        # df.to_csv(f"{output_folder}/{output_file}", index= False)
+        df = pandas.DataFrame(csv_set)
+        filenum_index = argument.index.find(".")
+        if filenum_index != -1:
+            filenum = argument.index[:filenum_index]
+        else:
+            filenum = argument.index
+
+        output_folder = "/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/csv_sample"
+        output_file = str(filenum) + ".csv"
+        df.to_csv(f"{output_folder}/{output_file}", index= False)
         argument_pairs_num_in_the_debate_after_filtered = len(csv_set)
 
         print('pairs after filtered in the debate:', argument_pairs_num_in_the_debate_after_filtered)
@@ -368,7 +368,3 @@ if __name__ == "__main__":
     # print("total argument pairs:", sum(argument_pair_num_list))
     print(argument_pair_num_list_after_filtered)
     print("total argument pairs after filter:", sum(argument_pair_num_list_after_filtered),len(argument_pair_num_list_after_filtered))
-
-
-
-
