@@ -12,7 +12,10 @@ def modify_and_number_txt_files(folder_path):
         # 读取文本文件内容
         modified_content = []
         with open(file_path, 'r') as file:
-            for line in file:
+            for line_index, line in enumerate(file):
+
+
+
                 # 使用正则表达式找到所有类似于1.2.3.1.2.的序号
 
                 pattern = r'(?m)^\b(?<!\d)(\d+(\.\d+)*)\b(?=\.\s|$)'
@@ -40,5 +43,7 @@ def modify_and_number_txt_files(folder_path):
 
 
 if __name__ == '__main__':
-    modify_and_number_txt_files('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/englishdebates')
+    # modify_and_number_txt_files('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/testsample_english')
     # modify_and_number_txt_files('/home/users0/fanze/masterarbeit/englishdebates')
+
+    modify_and_number_txt_files ('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/testsample_english/onesample/')
