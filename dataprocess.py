@@ -43,7 +43,7 @@ def modify_and_number_txt_files(folder_path):
 
 
 if __name__ == '__main__':
-    # modify_and_number_txt_files('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/testsample_english')
+    modify_and_number_txt_files('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/testsample_english')
     # modify_and_number_txt_files('/home/users0/fanze/masterarbeit/englishdebates')
 
-    modify_and_number_txt_files ('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/testsample_english/onesample/')
+    # modify_and_number_txt_files ('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/testsample_english/')
