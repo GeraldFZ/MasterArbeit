@@ -89,7 +89,7 @@ class Debate:
                                     content_2 = argument.content
                                     polarity_2 = argument.absolute_polarity_compute(Arguments)
 
-                                    if distance < 3:
+                                    if distance <3 :
                                         # with relatedness
                                         # relatedness_distance_set.append(
                                         #         {"index_1": return_index_1, "content_1": content_1, "index_2": return_index_2, "content_2": content_2, "polarity_2": polarity_2,  "distance": distance,
@@ -146,7 +146,7 @@ class Debate:
                                     content_2 = argument.content
                                     polarity_2 = argument.absolute_polarity_compute(Arguments)
 
-                                    if distance < 3:
+                                    if distance <3 :
                                         # with relatedness
                                         # relatedness_distance_set.append(
                                         #         {"index_1": return_index_1, "content_1": content_1, "index_2": return_index_2, "content_2": content_2, "polarity_2": polarity_2,  "distance": distance,
@@ -186,7 +186,10 @@ class Debate:
             #       "relative_polarity_value:", relative_polarity_value)
             found_root_argument = 0
 
-            while current_index_list.count('.') >= 1 and found_root_argument == 1:
+            while current_index_list.count('.') >= 1:
+                if self.relative_polarity == None:
+                    result = 0
+                    return result
                 if current_index_list.count('.') >= 2:
                     for argument in Arguments:
                         # print(current_index_list.count('.'))
@@ -200,8 +203,8 @@ class Debate:
                                 # print("argument.index", argument.index.strip())
                                 # print("目前的极值", result, "父节点的极值", argument.relative_polarity_value)
 
-                                # result = argument.relative_polarity_value * result
-                                result = 0
+                                result = argument.relative_polarity_value * result
+                                # result = 0
                                 # print("计算后的结果", result)
                                 # print("current_index_list", current_index_list)
                                 last_dot_position = self.find_last_dot(current_index_list)
@@ -209,7 +212,7 @@ class Debate:
 
                             elif (argument.relative_polarity == None):
                                 current_index_list = list(argument.index.strip())
-                                print("haha", argument.index)
+                                result = result * 1
 
                                 #
                                 found_root_argument = 1
@@ -218,6 +221,8 @@ class Debate:
                     result = relative_polarity_value
                     # print(result)
                     return result
+
+
 
             return result
         def test(self, Arguments):
@@ -294,7 +299,7 @@ def load_debates_from_folder(folder_path):
 
 
 if __name__ == "__main__":
-    # debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/englishdebates')
+    # debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/englishdebates/who-will-win-the-game-of-thrones-1203')
     debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/testsample_english')
     # debates = load_debates_from_folder('/home/users0/fanze/masterarbeit/MasterArbeit_test/MasterArbeit/testsample_english/')
 
@@ -344,7 +349,22 @@ if __name__ == "__main__":
 
             for item in tqdm(argument.distance_relatedness_set):
                 item['polarity_1'] = argument.absolute_polarity
-                item['polarity_consistency'] = 1 if item['polarity_1'] == item['polarity_2'] else -1
+
+                # 检查两个极性值是否相等
+                if item['polarity_1'] == item['polarity_2']:
+                    # 如果两个极性值都为0
+                    if item['polarity_1'] == 0:
+                        item['polarity_consistency'] = -1
+                    # 如果两个极性值相等且都不为0
+                    else:
+                        item['polarity_consistency'] = 1
+                # 如果两个极性值不相等
+                else:
+                    item['polarity_consistency'] = -1
+
+
+
+
             csv_set.extend(argument.distance_relatedness_set)
 
 
@@ -354,7 +374,7 @@ if __name__ == "__main__":
         # df['polarity_1'] = argument.absolute_polarity
         print("asdf", argument.absolute_polarity)
 
-        df['polarity_consistency'] = df.apply(lambda row: 1 if row['polarity_1'] == row['polarity_2'] else -1, axis=1)
+        # df['polarity_consistency'] = df.apply(lambda row: 1 if row['polarity_1'] == row['polarity_2'] else -1, axis=1)
         filenum_index = argument.index.find(".")
         if filenum_index != -1:
             filenum = argument.index[:filenum_index]
