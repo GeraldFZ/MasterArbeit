@@ -1,16 +1,17 @@
-from sentence_transformers import SentenceTransformer
-model = SentenceTransformer('all-MiniLM-L6-v2')
+import re
 
-#Our sentences we like to encode
-sentences = ['This framework generates embeddings for each input sentence',
-    'Sentences are passed as a list of string.',
-    'The quick brown fox jumps over the lazy dog.']
+def is_special_structure(text):
+    # 定义正则表达式
+    pattern = r"-> See \d+(\.\d+)+\."
 
-#Sentences are encoded by calling model.encode()
-embeddings = model.encode(sentences)
+    # 使用re.match进行匹配
+    return bool(re.match(pattern, text))
 
-#Print the embeddings
-for sentence, embedding in zip(sentences, embeddings):
-    print("Sentence:", sentence)
-    print("Embedding:", embedding)
-    print("")
+# 示例文本
+text1 = "-> Se 1.1.5.3.7.1.2.1.1.1.1."
+text2 = "-> Se 1.1.5.3.7.1.2.1.1.1.1."
+if not is_special_structure(text1) and not is_special_structure(text2):
+    print("jhahahahha")
+
+print(is_special_structure(text1))  # 应该返回 True
+print(is_special_structure(text2))  # 应该返回 False

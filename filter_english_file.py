@@ -1,6 +1,7 @@
 from langdetect import detect
 import os
 import shutil
+import sys
 
 # 遍历文件夹中的所有txt文件
 
@@ -20,10 +21,14 @@ def filter_english_txt_files_and_copy(folder_path, destination_folder):
 if __name__ == "__main__":
 
     # print(filter_english_txt_files_and_copy('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/discussions', '/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/results'))
-    english_txt_files = filter_english_txt_files_and_copy('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/testsample', '/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/testsample_english')
+    # english_txt_files = filter_english_txt_files_and_copy('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/testsample', '/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/testsample_english')
     # '/home/users0/fanze/masterarbeit/results'
 
     # english_txt_files = filter_english_txt_files_and_copy('/home/users0/fanze/masterarbeit/origindata/origindata/discussions', '/home/users0/fanze/masterarbeit/englishdebates')
+    # english_txt_files = filter_english_txt_files_and_copy('/mount/studenten5/projects/fanze/masterarbeit_data/origindata/discussions', '/mount/studenten5/projects/fanze/masterarbeit_data/englishdebates')
+    english_txt_files = filter_english_txt_files_and_copy(sys.argv[1], sys.argv[2])
+
+
 
     num = 0
     if len(english_txt_files) > 0:

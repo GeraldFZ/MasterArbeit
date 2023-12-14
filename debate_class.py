@@ -5,6 +5,7 @@ import pandas
 import dataprocess
 from tqdm import tqdm
 import time
+import sys
 
 class Debate:
     def __init__(self, debate_topic):
@@ -59,7 +60,7 @@ class Debate:
                             content_1 = self.content
                             polarity_2 = argument.absolute_polarity_compute(Arguments)
 
-                            if distance <3 :
+                            if distance != None :
 
 
                                 # with relatedness
@@ -89,7 +90,7 @@ class Debate:
                                     content_2 = argument.content
                                     polarity_2 = argument.absolute_polarity_compute(Arguments)
 
-                                    if distance <3 :
+                                    if distance != None :
                                         # with relatedness
                                         # relatedness_distance_set.append(
                                         #         {"index_1": return_index_1, "content_1": content_1, "index_2": return_index_2, "content_2": content_2, "polarity_2": polarity_2,  "distance": distance,
@@ -119,7 +120,7 @@ class Debate:
                             content_2 = argument.content
                             polarity_2 = argument.absolute_polarity_compute(Arguments)
 
-                            if distance <3 :
+                            if distance != None :
                                 # with relatedness
                                 # relatedness_distance_set.append(
                                 #         {"index_1": return_index_1, "content_1": content_1, "index_2": return_index_2, "content_2": content_2, "polarity_2": polarity_2,  "distance": distance,
@@ -146,7 +147,7 @@ class Debate:
                                     content_2 = argument.content
                                     polarity_2 = argument.absolute_polarity_compute(Arguments)
 
-                                    if distance <3 :
+                                    if distance != None :
                                         # with relatedness
                                         # relatedness_distance_set.append(
                                         #         {"index_1": return_index_1, "content_1": content_1, "index_2": return_index_2, "content_2": content_2, "polarity_2": polarity_2,  "distance": distance,
@@ -258,7 +259,9 @@ class Debate:
                     index = match.group(0).strip()
                     text_content = line.replace(match.group(0), '').strip()
                     relative_polarity = None
-                    content = text_content.strip()
+                    dirty_content = text_content.strip()
+                    url_pattern = r'\(?(https?://[^\s]+)\)'
+                    content = re.sub(url_pattern, '', dirty_content)
                     # relative_polarity_value = 1 if relative_polarity == "Pro" else -1
                     relative_polarity_value = 1
 
@@ -278,32 +281,43 @@ class Debate:
 
                     else:
                         raise ValueError
-                    content = text_content[4:].strip()
+                    dirty_content = text_content[4:].strip()
+                    url_pattern = r'\(?(https?://[^\s]+)\)'
+                    content = re.sub(url_pattern, '', dirty_content)
+
                     self.add_argument(index, content, relative_polarity, relative_polarity_value)
 
 
 
 
 
-def load_debates_from_folder(folder_path):
+def load_debates_from_folder(folder_path, start_file_num, end_file_num):
     debate_instances = []
     txt_files = [file for file in os.listdir(folder_path) if file.endswith('.txt')]
 
     for txt_file in txt_files:
         debate_instance = Debate("")  # 创建空的Debate实例
         txt_file_path = os.path.join(folder_path, txt_file)
+        txt_file_path_size = os.path.getsize(txt_file_path)
         debate_instance.load_debate_from_txt(txt_file_path)
         debate_instances.append(debate_instance)
+    debate_instances.sort(key=lambda file: txt_file_path_size, reverse=True)
+    debate_instance_selected = debate_instances[int(start_file_num) -1: int(end_file_num)-1]
 
-    return debate_instances
+    return debate_instance_selected
+
 
 
 if __name__ == "__main__":
-    # debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/englishdebates/who-will-win-the-game-of-thrones-1203')
-    debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/testsample_english')
+    # debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/englishdebates/')
+    # debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/testsample_english', 1, 4)
+
+    # debates = load_debates_from_folder(sys.argv[1])
     # debates = load_debates_from_folder('/home/users0/fanze/masterarbeit/MasterArbeit_test/MasterArbeit/testsample_english/')
 
-    # debates = load_debates_from_folder('/home/users0/fanze/masterarbeit/englishdebates')
+    debates = load_debates_from_folder('/mount/studenten5/projects/fanze/masterarbeit_data/englishdebates', sys.argv[1], sys.argv[2])
+    #1-51:0, 51-71:13,71-101:2, 101-151:3, 151-201:4, 201-301:5, 301-401:6, 401-451: 7, 451-501: 8, 501-601: 9, 601-701: 10, 701-760: 12
+
     start_time = time.time()
 
 
@@ -381,8 +395,8 @@ if __name__ == "__main__":
         else:
             filenum = argument.index
 
-        output_folder = "/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/csv_sample"
-        # output_folder = '/home/users0/fanze/masterarbeit/csv'
+        # output_folder = "/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/testsample_csv"
+        output_folder = '/mount/studenten5/projects/fanze/masterarbeit_data/csv_nofilter'
 
         output_file = str(filenum) + ".csv"
         df.to_csv(f"{output_folder}/{output_file}", index= False)
