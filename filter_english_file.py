@@ -25,8 +25,8 @@ if __name__ == "__main__":
     # '/home/users0/fanze/masterarbeit/results'
 
     # english_txt_files = filter_english_txt_files_and_copy('/home/users0/fanze/masterarbeit/origindata/origindata/discussions', '/home/users0/fanze/masterarbeit/englishdebates')
-    # english_txt_files = filter_english_txt_files_and_copy('/mount/studenten5/projects/fanze/masterarbeit_data/origindata/discussions', '/mount/studenten5/projects/fanze/masterarbeit_data/englishdebates')
-    english_txt_files = filter_english_txt_files_and_copy(sys.argv[1], sys.argv[2])
+    english_txt_files = filter_english_txt_files_and_copy('/mount/studenten5/projects/fanze/masterarbeit_data/origindata', '/mount/studenten5/projects/fanze/masterarbeit_data/englishdebates')
+    # english_txt_files = filter_english_txt_files_and_copy(sys.argv[1], sys.argv[2])
 
 
 

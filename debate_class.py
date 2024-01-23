@@ -254,7 +254,7 @@ class Debate:
             # for num, (index_of_argument_debate, line) in enumerate(enumerate(lines), start=1):
 
                 match = re.match(r'(?m)^\b(?<!\d)(\d+(\.\d+)*)\.\s', line)
-                if match and not re.match(r"^(Pro:|Con:)", line.replace(match.group(0), '').strip()):
+                if match and not re.match(r"^(Pro:|Con:)", line.replace(match.group(0), '').strip()) :
                     self.debate_topic = line.replace(match.group(0), '').strip()
                     index = match.group(0).strip()
                     text_content = line.replace(match.group(0), '').strip()
@@ -310,7 +310,7 @@ def load_debates_from_folder(folder_path, start_file_num, end_file_num):
 
 if __name__ == "__main__":
     # debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/englishdebates/')
-    # debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/testsample_english', 1, 4)
+    # debates = load_debates_from_folder('/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/testsample_english', 1, 5)
 
     # debates = load_debates_from_folder(sys.argv[1])
     # debates = load_debates_from_folder('/home/users0/fanze/masterarbeit/MasterArbeit_test/MasterArbeit/testsample_english/')

@@ -12,13 +12,14 @@ from datetime import datetime
 from sklearn.model_selection import train_test_split
 import random
 import  re
+# print(torch.cuda.is_available())
 
 
 # model_name = SentenceTransformer('all-mpnet-base-v2')
 model_name = 'sentence-transformers/all-MiniLM-L12-v2'
 
-train_batch_size = 32
-num_epochs = 10
+train_batch_size = 64
+num_epochs = 6
 word_embedding_model = models.Transformer(model_name)
 
 # Apply mean pooling to get one fixed sized sentence vector
@@ -44,73 +45,221 @@ tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v
 # debates_path = '/Users/fanzhe/Desktop/master_thesis/Data/kialo_debatetree_data/csv_sample'
 
 # # debates = load_debates_from_folder('/home/users0/fanze/masterarbeit/englishdebates')
-debates_path = '/mount/studenten5/projects/fanze/masterarbeit_data/csv_testmodel'
+debates_path = '/mount/studenten5/projects/fanze/masterarbeit_data/csv_nofilter'
 
 
 
 # model_save_path = '/Users/fanzhe/Desktop/master_thesis/Data/model_ouput/training_stsbenchmark_'+model_name.replace("/", "-")+'-'+datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-model_save_path = '/mount/studenten5/projects/fanze/masterarbeit_data/model_ouput/training_stsbenchmark_'+model_name.replace("/", "-")+'-'+datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+model_save_path = '/mount/studenten5/projects/fanze/masterarbeit_data/model_output/training_stsbenchmark_'+model_name.replace("/", "-")+'-'+datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-# 获取文件夹中的所有文件
-all_files = os.listdir(debates_path)
-
-# 筛选出CSV文件
-csv_files = [file for file in all_files if file.endswith('.csv')]
-samples = []
 def skip_argument(text):
-    # 定义正则表达式
     pattern = r"-> See \d+(\.\d+)+\."
 
-    # 使用re.match进行匹配
     return bool(re.match(pattern, text))
 
-# 逐个读取CSV文件
-for file in csv_files:
-    file_path = os.path.join(debates_path, file)
-    # 读取CSV文件
-    df = pd.read_csv(file_path)
-    # print(file_path)
-
-    # 按行处理数据
-    files_has_0_distance = []
-    for index, row in df.iterrows():
-        if float(row['distance']) != 0 and not skip_argument(row['content_1']) and not skip_argument(row['content_2']) and float(row['distance']) <= 5:
-            score =  1/ float(row['distance']) # Normalize score to range 0 ... 1
-            inp_example = InputExample(texts=[row['content_1'], row['content_2']], label=score)
-            # print(score, row['content_1'], row['content_2'])
-
-            samples.append(inp_example)
-        elif float(row['distance']) == 0:
-            files_has_0_distance.append(file_path)
-
-            print(file_path, row['distance'])
-            raise ValueError(f"Invalid 'distance' value at row {index}: distance cannot be zero.")
-file_name = "files_has_0_distance.txt"
-
-# 使用 'with' 语句打开文件进行写入，确保文件最后会被正确关闭
-with open(file_name, "w") as file:
-    # 遍历列表，写入每一行
-    for line in files_has_0_distance:
-        file.write(line + "\n")  # "\n" 是换行符
-
-# print(samples, type(samples))
 
 
-random.shuffle(samples)
-shuffled_samples = samples
-# print(shuffled_samples, type(shuffled_samples))
 
-train_ratio = 0.6
-dev_ratio = 0.2
-test_ration = 0.2
+# csv_files = [file for file in all_files if file.endswith('.csv') and (len(pd.read_csv(os.path.join(debates_path, file))) - 1) < 100000]
+def split_method_1(debate_size_threshold, distance_threshold):
 
-train_data, temp_data = train_test_split(shuffled_samples, test_size=(1 - train_ratio))
-dev_data, test_data = train_test_split(temp_data, test_size=0.5)
+    all_files = os.listdir(debates_path)
+    csv_files = [file for file in all_files if file.endswith('.csv') and (len(pd.read_csv(os.path.join(debates_path, file))) - 1) < debate_size_threshold]
+    random.shuffle(csv_files)
+    shuffled_csv_files = csv_files
+    samples = []
+
+    # 逐个读取CSV文件
+    for file in shuffled_csv_files:
+        file_path = os.path.join(debates_path, file)
+        # 读取CSV文件
+        df = pd.read_csv(file_path)
+        # print(file_path)
+        number_of_pairs = len(df) - 1
+
+        # 按行处理数据
+        files_has_0_distance = []
+        for index, row in df.iterrows():
+            if float(row['distance']) != 0 and not skip_argument(row['content_1']) and not skip_argument(row['content_2']) and float(row['distance']) <= distance_threshold:
+                score =  1/ float(row['distance']) # Normalize score to range 0 ... 1
+                inp_example = InputExample(texts=[row['content_1'], row['content_2']], label=score)
+                # print(score, row['content_1'], row['content_2'])
+
+                samples.append(inp_example)
+            elif float(row['distance']) == 0:
+                files_has_0_distance.append(file_path)
+
+                print(file_path, row['distance'])
+    file_name = "files_has_0_distance.txt"
+
+    # 使用 'with' 语句打开文件进行写入，确保文件最后会被正确关闭
+    with open(file_name, "w") as file:
+        # 遍历列表，写入每一行
+        for line in files_has_0_distance:
+            file.write(line + "\n")  # "\n" 是换行符
+
+    # print(samples, type(samples))
+
+    random.shuffle(samples)
+    shuffled_samples = samples
+    sample_collection = shuffled_samples
+    print(shuffled_samples[:100])
+
+
+
+    train_ratio = 0.8
+    dev_ratio = 0.1
+    test_ratio = 0.1
+
+    train_data, temp_data = train_test_split(sample_collection, test_size=(1 - train_ratio), shuffle=True)
+    dev_data, test_data = train_test_split(temp_data, test_size=0.5, shuffle=True)
 
 # print(type(dev_data[0]))
 
+    train_dataloader = DataLoader(train_data, shuffle=True, batch_size=train_batch_size)
+    dev_dataloader = DataLoader(dev_data, shuffle=True, batch_size=train_batch_size)
+    test_dataloader = DataLoader(test_data,shuffle=True, batch_size=train_batch_size)
+    print("Number of training examples:", len(train_dataloader.dataset))
+    print("Number of dev examples:", len(dev_dataloader.dataset))
+    print("Number of test examples:", len(test_dataloader.dataset))
+    return train_dataloader, dev_dataloader, test_dataloader, train_data, dev_data, test_data
 
-train_dataloader = DataLoader(train_data, shuffle=True, batch_size=train_batch_size)
+def split_method_2(debate_size_threshold, distance_threshold):
+    all_files = os.listdir(debates_path)
+    csv_files = [file for file in all_files if file.endswith('.csv') and (
+                len(pd.read_csv(os.path.join(debates_path, file))) - 1) < debate_size_threshold]
+    random.shuffle(csv_files)
+    shuffled_csv_files = csv_files
+    train_ratio = 0.8
+    dev_ratio = 0.1
+    test_ratio = 0.1
+
+    # 确保所有比例加起来等于1
+    assert train_ratio + dev_ratio + test_ratio == 1, "Ratios must sum up to 1."
+
+
+
+    # Calculate the number of files for train, dev, and test sets
+    train_files_count = int(train_ratio * len(shuffled_csv_files))
+    dev_files_count = int(dev_ratio * len(shuffled_csv_files))
+    test_files_count = int(test_ratio * len(shuffled_csv_files))
+
+    # Make sure the total count does not exceed the number of available files
+    assert train_files_count + dev_files_count + test_files_count <= len(
+        shuffled_csv_files), "File counts exceed total."
+
+    # Split the file paths into training, development, and testing sets
+    train_files = shuffled_csv_files[:train_files_count]
+    dev_files = shuffled_csv_files[train_files_count:train_files_count + dev_files_count]
+    test_files = shuffled_csv_files[train_files_count + dev_files_count:]
+    
+    train_data = []
+    dev_data = []
+    test_data = []
+    files_has_0_distance = []
+
+    for file in train_files:
+        content_1_list = []
+        file_path = os.path.join(debates_path, file)
+        # 读取CSV文件
+        df = pd.read_csv(file_path)
+        # print(file_path)
+
+        # 按行处理数据
+        for index, row in df.iterrows():
+            if float(row['distance']) != 0 and not skip_argument(row['content_1']) and not skip_argument(row['content_2']) and float(row['distance']) <= distance_threshold:
+                score =  1/ float(row['distance']) # Normalize score to range 0 ... 1
+                inp_example = InputExample(texts=[row['content_1'], row['content_2']], label=score)
+                # print(score, row['content_1'], row['content_2'])
+
+                train_data.append(inp_example)
+                if row['content_1'] not in content_1_list:
+                    content_1_list.append(row['content_1'])
+            elif float(row['distance']) == 0:
+                files_has_0_distance.append(file_path)
+
+                print(file_path, row['distance'])
+        for content_1 in content_1_list:
+            rest_of_csv = [f for f in train_files if f != file]
+            random_negative_arguments = []
+            while len(random_negative_arguments)< 5:
+                random_file = random.choice(rest_of_csv)
+                df_random_file = pd.read_csv(random_file)
+                random_value = df_random_file['content_1'].sample().iloc[0]
+                if random_value not in random_negative_arguments:
+                    random_negative_arguments.append(random_value)
+
+            for negative_argument in random_negative_arguments:
+                neg_inp_example = InputExample(texts=[content_1, negative_argument], label=0)
+                train_data.append(neg_inp_example)
+
+
+    for file in dev_files:
+        file_path = os.path.join(debates_path, file)
+        # 读取CSV文件
+        df = pd.read_csv(file_path)
+        # print(file_path)
+
+        # 按行处理数据
+        for index, row in df.iterrows():
+            if float(row['distance']) != 0 and not skip_argument(row['content_1']) and not skip_argument(row['content_2']) and float(row['distance']) <= distance_threshold:
+                score =  1/ float(row['distance']) # Normalize score to range 0 ... 1
+                inp_example = InputExample(texts=[row['content_1'], row['content_2']], label=score)
+                # print(score, row['content_1'], row['content_2'])
+
+                dev_data.append(inp_example)
+            elif float(row['distance']) == 0:
+                files_has_0_distance.append(file_path)
+
+                print(file_path, row['distance'])
+    for file in test_files:
+        file_path = os.path.join(debates_path, file)
+        # 读取CSV文件
+        df = pd.read_csv(file_path)
+        # print(file_path)
+
+        # 按行处理数据
+        for index, row in df.iterrows():
+            if float(row['distance']) != 0 and not skip_argument(row['content_1']) and not skip_argument(row['content_2']) and float(row['distance']) <= distance_threshold:
+                score =  1/ float(row['distance']) # Normalize score to range 0 ... 1
+                inp_example = InputExample(texts=[row['content_1'], row['content_2']], label=score)
+                # print(score, row['content_1'], row['content_2'])
+
+                test_data.append(inp_example)
+            elif float(row['distance']) == 0:
+                files_has_0_distance.append(file_path)
+
+                print(file_path, row['distance'])
+
+
+    file_name = "files_has_0_distance.txt"
+
+    # 使用 'with' 语句打开文件进行写入，确保文件最后会被正确关闭
+    with open(file_name, "w") as file:
+        # 遍历列表，写入每一行
+        for line in files_has_0_distance:
+            file.write(line + "\n")  # "\n" 是换行符
+    train_dataloader = DataLoader(train_data, shuffle=True, batch_size=train_batch_size)
+    dev_dataloader = DataLoader(dev_data, shuffle=True, batch_size=train_batch_size)
+    test_dataloader = DataLoader(test_data,shuffle=True, batch_size=train_batch_size)
+    print("Number of training examples:", len(train_dataloader.dataset))
+    print("Number of dev examples:", len(dev_dataloader.dataset))
+    print("Number of test examples:", len(test_dataloader.dataset))
+    return train_dataloader, dev_dataloader, test_dataloader, train_data, dev_data, test_data
+
+
+
+
+    # Now, you can process these files or save them as needed
+
+def negative_reader(dataset):
+    content_1_list = [example.texts[0] for example in train_data]
+    unique_content_1_list = list(set(content_1_list))  # 转换为集合去除重复，再转换回列表
+
+
+train_dataloader, dev_dataloader, test_dataloader, train_data, dev_data, test_data = split_method_1(100000, 5)
+
+
 train_loss = losses.CosineSimilarityLoss(model=model)
 
 logging.info("Read STSbenchmark dev dataset")
