@@ -1,6 +1,5 @@
-
 from sentence_transformers import SentenceTransformer,  InputExample, losses, models
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, AutoConfig
 import torch
 import pandas as pd
 import os
@@ -12,15 +11,24 @@ from datetime import datetime
 from sklearn.model_selection import train_test_split
 import random
 import  re
+import yaml
+import sys
 # print(torch.cuda.is_available())
 
 
 # model_name = SentenceTransformer('all-mpnet-base-v2')
 model_name = 'sentence-transformers/all-MiniLM-L12-v2'
 
-train_batch_size = 64
-num_epochs = 6
+train_batch_size = int(input("please input train_batch_size "))
+
+num_epochs = int(input("please input num_epochs "))
+
+negative_sample_num = int(input("please input negtive sample num "))
+distance_limit = int(input("please input max distance "))
+csv_pair_size_limit = int(input("please input csv pair size limit "))
+split_method_index = int(input("please input split method index(1: collect all pairs and then split, 2: split csv files first then collect pairs) "))
 word_embedding_model = models.Transformer(model_name)
+
 
 # Apply mean pooling to get one fixed sized sentence vector
 pooling_model = models.Pooling(word_embedding_model.get_word_embedding_dimension(),
@@ -37,7 +45,7 @@ model = SentenceTransformer(modules=[word_embedding_model, pooling_model])
 logging.info("Read STSbenchmark train dataset")
 # Apply mean pooling to get one fixed sized sentence vector
 
-
+print('running')
 tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
 
 
@@ -52,44 +60,68 @@ debates_path = '/mount/studenten5/projects/fanze/masterarbeit_data/csv_nofilter'
 # model_save_path = '/Users/fanzhe/Desktop/master_thesis/Data/model_ouput/training_stsbenchmark_'+model_name.replace("/", "-")+'-'+datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 model_save_path = '/mount/studenten5/projects/fanze/masterarbeit_data/model_output/training_stsbenchmark_'+model_name.replace("/", "-")+'-'+datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
+
 def skip_argument(text):
     pattern = r"-> See \d+(\.\d+)+\."
 
     return bool(re.match(pattern, text))
 
-
-
-
 # csv_files = [file for file in all_files if file.endswith('.csv') and (len(pd.read_csv(os.path.join(debates_path, file))) - 1) < 100000]
-def split_method_1(debate_size_threshold, distance_threshold):
+def split_method_1(max_pairs_size, max_distance):
 
     all_files = os.listdir(debates_path)
-    csv_files = [file for file in all_files if file.endswith('.csv') and (len(pd.read_csv(os.path.join(debates_path, file))) - 1) < debate_size_threshold]
+    csv_files = [file for file in all_files if file.endswith('.csv') and (len(pd.read_csv(os.path.join(debates_path, file)))) < max_pairs_size]
     random.shuffle(csv_files)
     shuffled_csv_files = csv_files
     samples = []
 
     # 逐个读取CSV文件
+    content_1_list = []
+
     for file in shuffled_csv_files:
+
         file_path = os.path.join(debates_path, file)
         # 读取CSV文件
         df = pd.read_csv(file_path)
-        # print(file_path)
-        number_of_pairs = len(df) - 1
+
+        number_of_pairs = len(df)
+        print(file, number_of_pairs)
+        print((len(pd.read_csv(os.path.join(debates_path, file)))))
 
         # 按行处理数据
         files_has_0_distance = []
         for index, row in df.iterrows():
-            if float(row['distance']) != 0 and not skip_argument(row['content_1']) and not skip_argument(row['content_2']) and float(row['distance']) <= distance_threshold:
+            if float(row['distance']) != 0 and not skip_argument(row['content_1']) and not skip_argument(row['content_2']) and float(row['distance']) <= max_distance:
                 score =  1/ float(row['distance']) # Normalize score to range 0 ... 1
+                if type(score) is not  float:
+                    print("scoretype", type(score))
                 inp_example = InputExample(texts=[row['content_1'], row['content_2']], label=score)
                 # print(score, row['content_1'], row['content_2'])
 
                 samples.append(inp_example)
+                file_index, extension = os.path.splitext(file)
+                if row['content_1'] not in content_1_list:
+                    content_1_list.append({"file_index": str(file_index), "content": row['content_1']})
+
             elif float(row['distance']) == 0:
                 files_has_0_distance.append(file_path)
 
                 print(file_path, row['distance'])
+    for content_1 in content_1_list:
+        # print("testhahaha", content_1,type(content_1))
+        rest_of_contents = [f for f in content_1_list if f["file_index"]!=content_1["file_index"]]
+        random_negative_arguments = []
+        while len(random_negative_arguments) < negative_sample_num:
+            random_index_content = random.choice(rest_of_contents)
+            random_content = random_index_content["content"]
+            # print(random_content)
+            if random_content not in random_negative_arguments:
+                random_negative_arguments.append(random_content)
+        for negative_argument in random_negative_arguments:
+            # print("test", content_1, negative_argument, type(negative_argument))
+            neg_inp_example = InputExample(texts=[content_1["content"], negative_argument], label=0.0)
+            samples.append(neg_inp_example)
+
     file_name = "files_has_0_distance.txt"
 
     # 使用 'with' 语句打开文件进行写入，确保文件最后会被正确关闭
@@ -103,7 +135,7 @@ def split_method_1(debate_size_threshold, distance_threshold):
     random.shuffle(samples)
     shuffled_samples = samples
     sample_collection = shuffled_samples
-    print(shuffled_samples[:100])
+    # print(shuffled_samples[:])
 
 
 
@@ -124,10 +156,12 @@ def split_method_1(debate_size_threshold, distance_threshold):
     print("Number of test examples:", len(test_dataloader.dataset))
     return train_dataloader, dev_dataloader, test_dataloader, train_data, dev_data, test_data
 
-def split_method_2(debate_size_threshold, distance_threshold):
+
+# Split the csv files first method2
+def split_method_2(max_pairs_size, max_distance):
     all_files = os.listdir(debates_path)
     csv_files = [file for file in all_files if file.endswith('.csv') and (
-                len(pd.read_csv(os.path.join(debates_path, file))) - 1) < debate_size_threshold]
+                len(pd.read_csv(os.path.join(debates_path, file)))) < max_pairs_size]
     random.shuffle(csv_files)
     shuffled_csv_files = csv_files
     train_ratio = 0.8
@@ -152,6 +186,9 @@ def split_method_2(debate_size_threshold, distance_threshold):
     train_files = shuffled_csv_files[:train_files_count]
     dev_files = shuffled_csv_files[train_files_count:train_files_count + dev_files_count]
     test_files = shuffled_csv_files[train_files_count + dev_files_count:]
+    print("train files lenth", len(train_files))
+    print("dev files lenth", len(dev_files))
+    print("test files lenth", len(test_files))
     
     train_data = []
     dev_data = []
@@ -161,14 +198,16 @@ def split_method_2(debate_size_threshold, distance_threshold):
     for file in train_files:
         content_1_list = []
         file_path = os.path.join(debates_path, file)
-        # 读取CSV文件
+        # read csv
         df = pd.read_csv(file_path)
-        # print(file_path)
+        print(file_path)
 
-        # 按行处理数据
+        # proces data by row
         for index, row in df.iterrows():
-            if float(row['distance']) != 0 and not skip_argument(row['content_1']) and not skip_argument(row['content_2']) and float(row['distance']) <= distance_threshold:
+            if float(row['distance']) != 0 and not skip_argument(row['content_1']) and not skip_argument(row['content_2']) and float(row['distance']) <= max_distance:
                 score =  1/ float(row['distance']) # Normalize score to range 0 ... 1
+
+
                 inp_example = InputExample(texts=[row['content_1'], row['content_2']], label=score)
                 # print(score, row['content_1'], row['content_2'])
 
@@ -180,17 +219,22 @@ def split_method_2(debate_size_threshold, distance_threshold):
 
                 print(file_path, row['distance'])
         for content_1 in content_1_list:
-            rest_of_csv = [f for f in train_files if f != file]
+            rest_of_csv = [f for f in shuffled_csv_files if f != file]
             random_negative_arguments = []
-            while len(random_negative_arguments)< 5:
+            while len(random_negative_arguments)< negative_sample_num:
                 random_file = random.choice(rest_of_csv)
-                df_random_file = pd.read_csv(random_file)
-                random_value = df_random_file['content_1'].sample().iloc[0]
-                if random_value not in random_negative_arguments:
-                    random_negative_arguments.append(random_value)
+                random_file_path = os.path.join(debates_path, random_file)
+                try:
+
+                    df_random_file = pd.read_csv(random_file_path)
+                    random_value = df_random_file['content_1'].sample().iloc[0]
+                    if random_value not in random_negative_arguments:
+                        random_negative_arguments.append(random_value)
+                except FileNotFoundError:
+                    print(f"File not found: {random_file_path}")
 
             for negative_argument in random_negative_arguments:
-                neg_inp_example = InputExample(texts=[content_1, negative_argument], label=0)
+                neg_inp_example = InputExample(texts=[content_1, negative_argument], label=0.0)
                 train_data.append(neg_inp_example)
 
 
@@ -202,8 +246,9 @@ def split_method_2(debate_size_threshold, distance_threshold):
 
         # 按行处理数据
         for index, row in df.iterrows():
-            if float(row['distance']) != 0 and not skip_argument(row['content_1']) and not skip_argument(row['content_2']) and float(row['distance']) <= distance_threshold:
+            if float(row['distance']) != 0 and not skip_argument(row['content_1']) and not skip_argument(row['content_2']) and float(row['distance']) <= max_distance:
                 score =  1/ float(row['distance']) # Normalize score to range 0 ... 1
+
                 inp_example = InputExample(texts=[row['content_1'], row['content_2']], label=score)
                 # print(score, row['content_1'], row['content_2'])
 
@@ -214,14 +259,15 @@ def split_method_2(debate_size_threshold, distance_threshold):
                 print(file_path, row['distance'])
     for file in test_files:
         file_path = os.path.join(debates_path, file)
-        # 读取CSV文件
+
         df = pd.read_csv(file_path)
         # print(file_path)
 
-        # 按行处理数据
+        # process the data by row
         for index, row in df.iterrows():
-            if float(row['distance']) != 0 and not skip_argument(row['content_1']) and not skip_argument(row['content_2']) and float(row['distance']) <= distance_threshold:
+            if float(row['distance']) != 0 and not skip_argument(row['content_1']) and not skip_argument(row['content_2']) and float(row['distance']) <= max_distance:
                 score =  1/ float(row['distance']) # Normalize score to range 0 ... 1
+
                 inp_example = InputExample(texts=[row['content_1'], row['content_2']], label=score)
                 # print(score, row['content_1'], row['content_2'])
 
@@ -245,6 +291,9 @@ def split_method_2(debate_size_threshold, distance_threshold):
     print("Number of training examples:", len(train_dataloader.dataset))
     print("Number of dev examples:", len(dev_dataloader.dataset))
     print("Number of test examples:", len(test_dataloader.dataset))
+
+
+
     return train_dataloader, dev_dataloader, test_dataloader, train_data, dev_data, test_data
 
 
@@ -252,12 +301,34 @@ def split_method_2(debate_size_threshold, distance_threshold):
 
     # Now, you can process these files or save them as needed
 
-def negative_reader(dataset):
-    content_1_list = [example.texts[0] for example in train_data]
-    unique_content_1_list = list(set(content_1_list))  # 转换为集合去除重复，再转换回列表
+
+def generate_yaml(model_name):
+
+    config = {
+
+        "training": {
+            "train_batch_size": train_batch_size,
+            "num_epochs": num_epochs,
+            "evaluation_steps": 1000,
+            "split_method": split_method_index,
+            "max_pairs_size": csv_pair_size_limit,
+            "max_distance": distance_limit,
+            "train_ratio": 0.8,
+            "dev_ratio" : 0.1,
+            "test_ratio" : 0.1,
+            "loss_function": "losses.CosineSimilarityLoss(model=model)"
+        }
+    }
+
+    with open(model_save_path+'/model_config.yaml', 'w') as file:
+        yaml.dump(config, file, default_flow_style=False)
 
 
-train_dataloader, dev_dataloader, test_dataloader, train_data, dev_data, test_data = split_method_1(100000, 5)
+if split_method_index == 1:
+    train_dataloader, dev_dataloader, test_dataloader, train_data, dev_data, test_data = split_method_1(csv_pair_size_limit, distance_limit)
+
+elif split_method_index == 2:
+    train_dataloader, dev_dataloader, test_dataloader, train_data, dev_data, test_data = split_method_2(csv_pair_size_limit, distance_limit)
 
 
 train_loss = losses.CosineSimilarityLoss(model=model)
@@ -281,6 +352,21 @@ model.fit(train_objectives=[(train_dataloader, train_loss)],
 model = SentenceTransformer(model_save_path)
 test_evaluator = EmbeddingSimilarityEvaluator.from_input_examples(test_data, name='sts-test')
 test_evaluator(model, output_path=model_save_path)
+generate_yaml(model_name.replace("/", "-")+'-'+datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+num_training_examples = len(train_dataloader.dataset)
+num_dev_examples = len(dev_dataloader.dataset)
+num_test_examples = len(test_dataloader.dataset)
+
+
+
+
+with open(model_save_path+'/dataset_size.yaml', 'w') as file:
+    file.write(f"Number of training examples: {num_training_examples}\n")
+    file.write(f"Number of dev examples: {num_dev_examples}\n")
+    file.write(f"Number of test examples: {num_test_examples}\n")
+
+
+
 #Our sentences we like to encode
 
 # #Sentences are encoded by calling model.encode()
