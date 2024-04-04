@@ -479,6 +479,8 @@ class ExtendedEmbeddingSimilarityEvaluator(EmbeddingSimilarityEvaluator):
 
         super().__init__(sentences1, sentences2, scores, main_similarity=main_similarity)
         self.name = name  # 保留名称，以便在评估时使用
+        self.examples = sentence_examples  # 确保这里设置了examples属性
+
     def __call__(self, model, output_path=None, epoch=-1, steps=-1):
         # 初始化一个列表来收集所有的余弦相似度分数
         cos_sims = []
@@ -496,18 +498,22 @@ class ExtendedEmbeddingSimilarityEvaluator(EmbeddingSimilarityEvaluator):
             cos_sims.append(cos_sim)
 
             # 打印句子、计算得到的相似度分数和实际标签
-            print(f"Sentence 1: {sentence1}")
-            print(f"Sentence 2: {sentence2}")
-            print(f"Predicted Cosine Similarity: {cos_sim}")
-            print(f"Actual Label: {label}\n")
+            output_file_path = os.path.join(debates_path, "eval_step_by_step.txt")
+
+            # 使用 'with' 语句确保文件会被正确关闭
+            with open(output_file_path, "a") as file:  # 使用 "a" 模式以追加的方式写入文件
+                file.write(f"Sentence 1: {sentence1}\n")
+                file.write(f"Sentence 2: {sentence2}\n")
+                file.write(f"Predicted Cosine Similarity: {cos_sim}\n")
+                file.write(f"Actual Label: {label}\n\n")
 
         # 计算并返回平均余弦相似度
         return np.mean(cos_sims)
 
 
 logging.info("Read STSbenchmark dev dataset")
-# evaluator = EmbeddingSimilarityEvaluator.from_input_examples(dev_data, name='sts-dev')
-evaluator = ExtendedEmbeddingSimilarityEvaluator(dev_data, name='sts-dev')
+evaluator = EmbeddingSimilarityEvaluator.from_input_examples(dev_data, name='sts-dev')
+# evaluator = ExtendedEmbeddingSimilarityEvaluator(dev_data, name='sts-dev')
 
 
 warmup_steps = math.ceil(len(train_dataloader) * num_epochs  * 0.1) #10% of train data for warm-up
@@ -524,8 +530,8 @@ model.fit(train_objectives=[(train_dataloader, train_loss)],
           output_path=model_save_path)
 
 model = SentenceTransformer(model_save_path)
-# test_evaluator = EmbeddingSimilarityEvaluator.from_input_examples(test_data, name='sts-test')
-test_evaluator = ExtendedEmbeddingSimilarityEvaluator(test_data, name='sts-test')
+test_evaluator = EmbeddingSimilarityEvaluator.from_input_examples(test_data, name='sts-test')
+# test_evaluator = ExtendedEmbeddingSimilarityEvaluator(test_data, name='sts-test')
 
 test_evaluator(model, output_path=model_save_path)
 generate_yaml(model_name.replace("/", "-")+'-'+datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))

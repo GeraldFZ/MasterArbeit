@@ -1,6 +1,6 @@
 from sentence_transformers.evaluation import LabelAccuracyEvaluator
 
-from sentence_transformers import SentenceTransformer,  InputExample, losses, models
+from sentence_transformers import SentenceTransformer,  InputExample, losses, models, util
 from transformers import AutoTokenizer
 import pandas as pd
 import os
@@ -42,8 +42,10 @@ distance_limit = int(input("please input max distance "))
 csv_pair_size_limit = int(input("please input csv pair size limit "))
 split_method_index = int(input("please input split method index(1: collect all pairs and then split, 2: split csv files first then collect pairs) "))
 random_seed_num = int(input("please input random seed number "))
-CUDA_num = int(input("please input CUDA number "))
-device = torch.device(f"cuda:{CUDA_num}")
+# CUDA_num = int(input("please input CUDA number "))
+# device = torch.device(f"cuda:{CUDA_num}")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 random.seed(random_seed_num)
 
 logging.info("Read STSbenchmark train dataset")
@@ -539,6 +541,30 @@ def split_method_2(max_pairs_size, max_distance):
     return train_dataloader, dev_dataloader, test_dataloader, train_data, dev_data, test_data
 
     # Now, you can process these files or save them as needed
+
+
+# class ExtendedLabelAccuracyEvaluator(LabelAccuracyEvaluator):
+#     def __init__(self, dataloader, softmax_model, name, output_path):
+#         super().__init__(dataloader, softmax_model, name)
+#         self.output_path = output_path
+#
+#     def __call__(self, model, output_path=None, epoch=-1, steps=-1):
+#         with open(self.output_path, 'a') as file:
+#             for example in self.dataloader.dataset:
+#                 sentence1, sentence2 = example.texts
+#                 label = example.label
+#                 embeddings = model.encode([sentence1, sentence2], convert_to_tensor=True)
+#                 cos_sim = util.pytorch_cos_sim(embeddings[0], embeddings[1]).item()
+#
+#                 # 将句子、标签和余弦相似度写入文件
+#                 file.write(f"Sentence 1: {sentence1}\n")
+#                 file.write(f"Sentence 2: {sentence2}\n")
+#                 file.write(f"Label: {label}\n")
+#                 file.write(f"Cosine Similarity: {cos_sim}\n\n")
+#
+#         # 保持其他评估逻辑不变
+#         return super().__call__(model, output_path, epoch, steps)
+
 file_name = "files_has_0_distance.txt"
 
 # 使用 'with' 语句打开文件进行写入，确保文件最后会被正确关闭
