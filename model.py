@@ -195,9 +195,9 @@ def split_method_1(max_pairs_size, max_distance):
 
 
 
-    train_ratio = 0.8
-    dev_ratio = 0.1
-    test_ratio = 0.1
+    train_ratio = 0.6
+    dev_ratio = 0.2
+    test_ratio = 0.2
 
     train_data, temp_data = train_test_split(sample_collection, test_size=(1 - train_ratio), shuffle=True, random_state=random_seed_num)
     print("shuffle seed test, trainset", train_data[:10])
