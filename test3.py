@@ -1,25 +1,22 @@
-import os
-import pandas as pd
+import numpy as np
+from scipy.optimize import fsolve
 
-debates_path = '/mount/studenten5/projects/fanze/masterarbeit_data/csv_nofilter'
-all_files = os.listdir(debates_path)
+def equation(r, n, S):
+    # 根据给出的r (y/x)，n 和 S (x+y) 计算原方程两边的差
+    x = S / (1 + r)
+    y = r * x
+    lhs = n * y * (y - 1)  # n*y*(y-1)
+    rhs = x * (x - 1)      # x*(x-1)
+    return lhs - rhs
 
-csv_files = [file for file in all_files if file.endswith('.csv')]
+def solve_ratio(n, S):
+    # 使用fsolve求解方程，初始猜测r=1
+    initial_guess = 1
+    ratio = fsolve(equation, initial_guess, args=(n, S))
+    return ratio[0]
 
-files_has_0_distance = set()  # 使用集合来避免重复
-print("running")
-for file in csv_files:
-    file_path = os.path.join(debates_path, file)
-    try:
-        df = pd.read_csv(file_path)
-        if (df['distance'] == 0).any():  # 检查是否有distance为0的行
-            files_has_0_distance.add(file_path)
-            print(file_path)
-    except Exception as e:  # 添加错误处理
-        print(f"Error reading {file_path}: {e}")
-
-file_name = "/mount/studenten5/projects/fanze/masterarbeit/files_has_0_distance.txt"
-
-with open(file_name, "w") as file:
-    for line in files_has_0_distance:
-        file.write(line + "\n")
+# 示例：使用 n=2 和 S=10
+n = 2
+S = 10
+ratio = solve_ratio(n, S)
+print("The ratio y/x for n={} and x+y={} is approximately {:.4f}".format(n, S, ratio))
