@@ -40,3 +40,4 @@ if __name__ == "__main__":
             print(num)
     else:
         print("未找到英文文本文件。")
+        # hahaha

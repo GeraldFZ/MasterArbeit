@@ -20,3 +20,6 @@ n = 2
 S = 10
 ratio = solve_ratio(n, S)
 print("The ratio y/x for n={} and x+y={} is approximately {:.4f}".format(n, S, ratio))
+
+
+# TEST
