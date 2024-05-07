@@ -162,4 +162,4 @@ if __name__ == '__main__':
         # 在循环结束后打印长度
     for argument in debate_instance.arguments:
         print(len(debate_instance.arguments), len(argument.relatedness_distance_set))
-        # lalala
+        # lalalaohoh
