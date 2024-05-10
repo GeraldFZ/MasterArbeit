@@ -97,6 +97,8 @@ def generate_yaml(model_name):
 def skip_argument(text):
     # 定义正则表达式
     pattern = r"-> See \d+(\.\d+)+\."
+    if pd.isna(text):
+        return False
 
     # 使用re.match进行匹配
     return bool(re.match(pattern, text))
@@ -558,10 +560,12 @@ def split_method_3(max_pairs_size, max_distance):
 
     # 获取所有唯一配对
     resulting_pairs = unique_pairs(elements)
+    print(resulting_pairs)
 
     train_argument_index_list_sum = []
     dev_argument_index_list_sum = []
     test_argument_index_list_sum = []
+
 
 
     for file in all_files:
@@ -593,25 +597,30 @@ def split_method_3(max_pairs_size, max_distance):
             test_argument_index_list_pairs = unique_pairs(test_argument_index_list)
 
             for index_pair in train_argument_index_list_pairs:
-                selected_train_row = df[df['index_1'] == index_pair[0] and df['index_2'] == index_pair[1]]
+                selected_train_row = df[(df['index_1'] == index_pair[0]) & (df['index_2'] == index_pair[1])]
+                # print('test', df['index_1'], index_pair[0])
+                # print(df['index_2'], index_pair[1])
+
+                print('test', selected_train_row['content_1'].iloc[0], type(selected_train_row['content_1'].iloc[0]))
+                
 
 
-                if float(selected_train_row['distance']) != 0 and not skip_argument(selected_train_row['content_1']) and not skip_argument(selected_train_row['content_2']) and float(selected_train_row['distance']) <= max_distance:
-                    if float(selected_train_row['polarity_consistency']) == 1:
+                if float(selected_train_row['distance'].iloc[0]) != 0 and not skip_argument(selected_train_row['content_1'].iloc[0]) and not skip_argument(selected_train_row['content_2'].iloc[0]) and float(selected_train_row['distance'].iloc[0]) <= max_distance:
+                    if float(selected_train_row['polarity_consistency'].iloc[0]) == 1:
                         score = 1  # Normalize score to range 0 ... 1
-                        inp_example = InputExample(texts=[selected_train_row['content_1'], selected_train_row['content_2']], label=score)
+                        inp_example = InputExample(texts=[selected_train_row['content_1'].iloc[0], selected_train_row['content_2'].iloc[0]], label=score)
                         # print(score, selected_train_row['content_1'], selected_train_row['content_2'])
                         train_data.append(inp_example)
 
-                    if float(selected_train_row['polarity_consistency']) == -1:
-                        if float(selected_train_row['polarity_1']) == 0:
+                    if float(selected_train_row['polarity_consistency'].iloc[0]) == -1:
+                        if float(selected_train_row['polarity_1'].iloc[0]) == 0:
                             # score = 1
                             # inp_example = InputExample(texts=[selected_train_row['content_1'], selected_train_row['content_2']], label=score)
                             pass
 
-                        elif float(selected_train_row['polarity_1']) != 0:
+                        elif float(selected_train_row['polarity_1'].iloc[0]) != 0:
                             score = 0
-                            inp_example = InputExample(texts=[selected_train_row['content_1'], selected_train_row['content_2']], label=score)
+                            inp_example = InputExample(texts=[selected_train_row['content_1'].iloc[0], selected_train_row['content_2'].iloc[0]], label=score)
 
                             train_data.append(inp_example)
 
@@ -627,24 +636,31 @@ def split_method_3(max_pairs_size, max_distance):
 
             for index_pair in dev_argument_index_list_pairs:
                 selected_dev_row = df[df['index_1'] == index_pair[0] and df['index_2'] == index_pair[1]]
+                selected_dev_row_distance = selected_dev_row['distance'].iloc[0]
+                selected_dev_row_content_1 = selected_dev_row['content_1'].iloc[0]
+                selected_dev_row_content_2 = selected_dev_row['content_2'].iloc[0]
+                selected_dev_row_polarity_consistency = selected_dev_row['polarity_consistency'].iloc[0]
+                selected_dev_row_polarity_1 = selected_dev_row['polarity_1'].iloc[0]
+
+                
 
 
-                if float(selected_dev_row['distance']) != 0 and not skip_argument(selected_dev_row['content_1']) and not skip_argument(selected_dev_row['content_2']) and float(selected_dev_row['distance']) <= max_distance:
-                    if float(selected_dev_row['polarity_consistency']) == 1:
+                if float(selected_dev_row_distance) != 0 and not skip_argument(selected_dev_row_content_1) and not skip_argument(selected_dev_row_content_2) and float(selected_dev_row_distance) <= max_distance:
+                    if float(selected_dev_row_polarity_consistency) == 1:
                         score = 1  # Normalize score to range 0 ... 1
-                        inp_example = InputExample(texts=[selected_dev_row['content_1'], selected_dev_row['content_2']], label=score)
+                        inp_example = InputExample(texts=[selected_dev_row_content_1, selected_dev_row_content_2], label=score)
                         # print(score, selected_train_row['content_1'], selected_train_row['content_2'])
                         dev_data.append(inp_example)
 
-                    if float(selected_dev_row['polarity_consistency']) == -1:
-                        if float(selected_dev_row['polarity_1']) == 0:
+                    if float(selected_dev_row_polarity_consistency) == -1:
+                        if float(selected_dev_row_polarity_1) == 0:
                             # score = 1
                             # inp_example = InputExample(texts=[selected_train_row['content_1'], selected_train_row['content_2']], label=score)
                             pass
 
-                        elif float(selected_dev_row['polarity_1']) != 0:
+                        elif float(selected_dev_row_polarity_1) != 0:
                             score = 0
-                            inp_example = InputExample(texts=[selected_dev_row['content_1'], selected_dev_row['content_2']], label=score)
+                            inp_example = InputExample(texts=[selected_dev_row_content_1, selected_dev_row_content_2], label=score)
 
                             dev_data.append(inp_example)
 
@@ -654,30 +670,36 @@ def split_method_3(max_pairs_size, max_distance):
                 elif float(row['distance']) == 0:
                     files_has_0_distance.append(file_path)
 
-                    print(file_path, row['distance'])
+                    # print(file_path, row['distance'])
 
                 random_dev_data = random.sample(dev_data, max_pairs_size_dev)
 
             for index_pair in test_argument_index_list_pairs:
                 selected_test_row = df[df['index_1'] == index_pair[0] and df['index_2'] == index_pair[1]]
+                selected_test_row = df[df['index_1'] == index_pair[0] and df['index_2'] == index_pair[1]]
+                selected_test_row_distance = selected_dev_row['distance'].iloc[0]
+                selected_test_row_content_1 = selected_dev_row['content_1'].iloc[0]
+                selected_test_row_content_2 = selected_dev_row['content_2'].iloc[0]
+                selected_test_row_polarity_consistency = selected_dev_row['polarity_consistency'].iloc[0]
+                selected_test_row_polarity_1 = selected_dev_row['polarity_1'].iloc[0]
 
 
-                if float(selected_test_row['distance']) != 0 and not skip_argument(selected_test_row['content_1']) and not skip_argument(selected_test_row['content_2']) and float(selected_test_row['distance']) <= max_distance:
-                    if float(selected_test_row['polarity_consistency']) == 1:
+                if float(selected_test_row_distance) != 0 and not skip_argument(selected_test_row_content_1) and not skip_argument(selected_test_row_content_2) and float(selected_test_row_distance) <= max_distance:
+                    if float(selected_test_row_polarity_consistency) == 1:
                         score = 1  # Normalize score to range 0 ... 1
-                        inp_example = InputExample(texts=[selected_test_row['content_1'], selected_test_row['content_2']], label=score)
+                        inp_example = InputExample(texts=[selected_test_row_content_1, selected_test_row_content_2], label=score)
                         # print(score, selected_train_row['content_1'], selected_train_row['content_2'])
                         test_data.append(inp_example)
 
-                    if float(selected_test_row['polarity_consistency']) == -1:
-                        if float(selected_test_row['polarity_1']) == 0:
+                    if float(selected_test_row_polarity_consistency) == -1:
+                        if float(selected_test_row_polarity_1) == 0:
                             # score = 1
                             # inp_example = InputExample(texts=[selected_train_row['content_1'], selected_train_row['content_2']], label=score)
                             pass
 
-                        elif float(selected_test_row['polarity_1']) != 0:
+                        elif float(selected_test_row_polarity_1) != 0:
                             score = 0
-                            inp_example = InputExample(texts=[selected_test_row['content_1'], selected_test_row['content_2']], label=score)
+                            inp_example = InputExample(texts=[selected_test_row_content_1, selected_test_row_content_2], label=score)
 
                             test_data.append(inp_example)
 
