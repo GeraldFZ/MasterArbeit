@@ -16,6 +16,7 @@ import torch
 import numpy as np
 import sympy as sp
 from scipy.optimize import fsolve
+from concurrent.futures import ProcessPoolExecutor
 
 # model_name = SentenceTransformer('all-mpnet-base-v2')
 model_name = 'sentence-transformers/all-MiniLM-L12-v2'
@@ -537,232 +538,107 @@ def split_method_3(max_pairs_size, max_distance):
 
 
     def equation(r, n, S):
-        # 根据给出的r (y/x)，n 和 S (x+y) 计算原方程两边的差
         x = S / (1 + r)
         y = r * x
-        lhs = n * y * (y - 1)  # n*y*(y-1)
-        rhs = x * (x - 1)  # x*(x-1)
+        lhs = n * y * (y - 1)
+        rhs = x * (x - 1)
         return lhs - rhs
 
     def solve_ratio(n, S):
-        # 使用fsolve求解方程，初始猜测r=1
         initial_guess = 1
         ratio = fsolve(equation, initial_guess, args=(n, S))
         return ratio[0]
 
     def unique_pairs(lst):
-        pairs = []  # 存储结果的列表
-        n = len(lst)
-        for i in range(n):
-            for j in range(i + 1, n):
-                pairs.append((lst[i], lst[j]))
-        return pairs
+        return [(lst[i], lst[j]) for i in range(len(lst)) for j in range(i + 1, len(lst))]
 
 
 
 
 
-    train_argument_index_list_sum = []
-    dev_argument_index_list_sum = []
-    test_argument_index_list_sum = []
-
-
-
-    for file in all_files:
-        print('filename', file)
+    # train_argument_index_list_sum = []
+    # dev_argument_index_list_sum = []
+    # test_argument_index_list_sum = []
+    def process_file(file):
         df = pd.read_csv(os.path.join(debates_path, file))
- 
-
-        # file_path = os.path.join(debates_path, file)
-
-        # try:
-        #     df = pd.read_csv(file_path)
-        # except pd.errors.ParserError as e:
-        #     with open(file_path, 'r') as f:
-        #         lines = f.readlines()
-        #         for i, line in enumerate(lines):
-        #             if i == 15:  # 15表示第16行（索引从0开始）
-        #                 print(f"Line {i + 1}: {line}")
-        #     raise e
-
+        argument_index_list = df['index_1'].unique().tolist()
+        S = len(argument_index_list)
+        n = (dev_ratio + test_ratio) / (2 * train_ratio)
+        ratio = solve_ratio(n, S)
         
+        train_arguments_num = int(math.ceil(S * (ratio / (1 + ratio))))
+        dev_test_arguments_num = S - train_arguments_num
+        dev_arguments_num = int(math.ceil(dev_test_arguments_num / 2))
+        test_arguments_num = dev_test_arguments_num - dev_arguments_num
+        
+        train_argument_index_list = argument_index_list[:train_arguments_num]
+        dev_argument_index_list = argument_index_list[train_arguments_num:(train_arguments_num + dev_arguments_num)]
+        test_argument_index_list = argument_index_list[(train_arguments_num + dev_arguments_num):]
+        
+        train_argument_index_list_pairs = unique_pairs(train_argument_index_list)
+        dev_argument_index_list_pairs = unique_pairs(dev_argument_index_list)
+        test_argument_index_list_pairs = unique_pairs(test_argument_index_list)
+        
+        train_data = process_pairs(df, train_argument_index_list_pairs, max_distance)
+        dev_data = process_pairs(df, dev_argument_index_list_pairs, max_distance)
+        test_data = process_pairs(df, test_argument_index_list_pairs, max_distance)
+        
+        return train_data, dev_data, test_data, files_has_0_distance
 
-        if file.endswith('.csv'):
-            argument_index_list = []
-            for index, row in df.iterrows():
-                if row['index_1'] not in argument_index_list:
-                    argument_index_list.append(row['index_1'])
-
-
-            S = len(argument_index_list)
-            n = (dev_ratio+test_ratio)/(2 * train_ratio)
-            ratio = solve_ratio(n, S)
-
-
-
-            train_arguments_num = int(math.ceil(S * (ratio/(1+ratio))))
-            dev_test_arguments_num = int(S - train_arguments_num)
-            dev_arguments_num = int(math.ceil(dev_test_arguments_num/2))
-            test_arguments_num = int(math.ceil(dev_test_arguments_num/2))
-            print("The train pair and dev+test pair ratio y/x for n={} and x+y={}, total list={}, arguments ration y/x is approximately {:.4f}".format(n,train_arguments_num+dev_test_arguments_num, S, ratio))
-
-
-            train_argument_index_list = argument_index_list[:train_arguments_num]
-            dev_argument_index_list = argument_index_list[train_arguments_num:(train_arguments_num+dev_arguments_num)]
-            test_argument_index_list = argument_index_list[(train_arguments_num+dev_arguments_num):]
-
-            train_argument_index_list_pairs = unique_pairs(train_argument_index_list)
-            dev_argument_index_list_pairs = unique_pairs(dev_argument_index_list)
-            test_argument_index_list_pairs = unique_pairs(test_argument_index_list)
-
-            for index_pair in train_argument_index_list_pairs:
-                selected_train_row = df[(df['index_1'] == index_pair[0]) & (df['index_2'] == index_pair[1])]
-                # print('test', df['index_1'], index_pair[0])
-                # print(df['index_2'], index_pair[1])
-
-                # print('test', selected_train_row['content_1'].iloc[0], type(selected_train_row['content_1'].iloc[0]))
-                # print("testpoint_train")
-                
-
-
-                if float(selected_train_row['distance'].iloc[0]) != 0 and not skip_argument(selected_train_row['content_1'].iloc[0]) and not skip_argument(selected_train_row['content_2'].iloc[0]) and float(selected_train_row['distance'].iloc[0]) <= max_distance:
-                    if float(selected_train_row['polarity_consistency'].iloc[0]) == 1:
-                        score = 1  # Normalize score to range 0 ... 1
-                        inp_example = InputExample(texts=[selected_train_row['content_1'].iloc[0], selected_train_row['content_2'].iloc[0]], label=score)
-                        # print(score, selected_train_row['content_1'], selected_train_row['content_2'])
-                        train_data.append(inp_example)
-
-                    if float(selected_train_row['polarity_consistency'].iloc[0]) == -1:
-                        if float(selected_train_row['polarity_1'].iloc[0]) == 0:
-                            # score = 1
-                            # inp_example = InputExample(texts=[selected_train_row['content_1'], selected_train_row['content_2']], label=score)
-                            pass
-
-                        elif float(selected_train_row['polarity_1'].iloc[0]) != 0:
-                            score = 0
-                            inp_example = InputExample(texts=[selected_train_row['content_1'].iloc[0], selected_train_row['content_2'].iloc[0]], label=score)
-
-                            train_data.append(inp_example)
-
-                    # train_data.append(inp_example)
-                    # if selected_train_row['content_1'] not in train_content_1_list:
-                    #     train_content_1_list.append(row['content_1'])
-                elif float(row['distance']) == 0:
-                    files_has_0_distance.append(file_path)
-
-                    # print(file_path, row['distance'])
-            if len(train_data) >= max_pairs_size_train:
-                random_train_data = random.sample(train_data, max_pairs_size_train)
+    def process_pairs(df, pairs, max_distance):
+        filtered_data = []
+        for index_pair in pairs:
+            selected_row = df[(df['index_1'] == index_pair[0]) & (df['index_2'] == index_pair[1])]
+            if selected_row.empty:
+                continue
+            row = selected_row.iloc[0]
+            distance = float(row['distance'])
+            if distance == 0:
+                files_has_0_distance.append(file_path)
+                continue
+            if distance > max_distance or skip_argument(row['content_1']) or skip_argument(row['content_2']):
+                continue
+            polarity_consistency = float(row['polarity_consistency'])
+            polarity_1 = float(row['polarity_1'])
+            if polarity_consistency == 1:
+                score = 1
+            elif polarity_consistency == -1 and polarity_1 != 0:
+                score = 0
             else:
-                    # 如果数据不足，使用所有数据
-                random_train_data = train_data            
+                continue
+            inp_example = InputExample(texts=[row['content_1'], row['content_2']], label=score)
+            filtered_data.append(inp_example)
+        return filtered_data
+
+    with ProcessPoolExecutor() as executor:
+        results = list(executor.map(process_file, all_files))
     
+    for train, dev, test, zero_distance_files in results:
+        train_data.extend(train)
+        dev_data.extend(dev)
+        test_data.extend(test)
+        files_has_0_distance.extend(zero_distance_files)
 
-            for index_pair in dev_argument_index_list_pairs:
-                selected_dev_row = df[(df['index_1'] == index_pair[0]) & (df['index_2'] == index_pair[1])]
-                selected_dev_row_distance = selected_dev_row['distance'].iloc[0]
-                selected_dev_row_content_1 = selected_dev_row['content_1'].iloc[0]
-                selected_dev_row_content_2 = selected_dev_row['content_2'].iloc[0]
-                selected_dev_row_polarity_consistency = selected_dev_row['polarity_consistency'].iloc[0]
-                selected_dev_row_polarity_1 = selected_dev_row['polarity_1'].iloc[0]
-                # print("testpoint_dev")
+    if files_has_0_distance:
+        log_file_path = "path/to/logs/files_has_0_distance.txt"
+        os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+        with open(log_file_path, 'w') as log_file:
+            for file_path in files_has_0_distance:
+                log_file.write(file_path + "\n")
+    else:
+        print("No files with 0 distance found.")
 
-                
-
-
-                if float(selected_dev_row_distance) != 0 and not skip_argument(selected_dev_row_content_1) and not skip_argument(selected_dev_row_content_2) and float(selected_dev_row_distance) <= max_distance:
-                    if float(selected_dev_row_polarity_consistency) == 1:
-                        score = 1  # Normalize score to range 0 ... 1
-                        inp_example = InputExample(texts=[selected_dev_row_content_1, selected_dev_row_content_2], label=score)
-                        # print(score, selected_train_row['content_1'], selected_train_row['content_2'])
-                        dev_data.append(inp_example)
-
-                    if float(selected_dev_row_polarity_consistency) == -1:
-                        if float(selected_dev_row_polarity_1) == 0:
-                            # score = 1
-                            # inp_example = InputExample(texts=[selected_train_row['content_1'], selected_train_row['content_2']], label=score)
-                            pass
-
-                        elif float(selected_dev_row_polarity_1) != 0:
-                            score = 0
-                            inp_example = InputExample(texts=[selected_dev_row_content_1, selected_dev_row_content_2], label=score)
-
-                            dev_data.append(inp_example)
-
-                    # train_data.append(inp_example)
-                    # if selected_train_row['content_1'] not in train_content_1_list:
-                    #     train_content_1_list.append(row['content_1'])
-                elif float(row['distance']) == 0:
-                    files_has_0_distance.append(file_path)
-
-                    # print(file_path, row['distance'])
-
-            if len(test_data) >= max_pairs_size_test:
-                random_test_data = random.sample(test_data, max_pairs_size_test)
-            else:
-                # 如果数据不足，使用所有数据
-                random_test_data = test_data
-            
-
-            for index_pair in test_argument_index_list_pairs:
-                selected_test_row = df[(df['index_1'] == index_pair[0]) & (df['index_2'] == index_pair[1])]
-                selected_test_row_distance = selected_dev_row['distance'].iloc[0]
-                selected_test_row_content_1 = selected_dev_row['content_1'].iloc[0]
-                selected_test_row_content_2 = selected_dev_row['content_2'].iloc[0]
-                selected_test_row_polarity_consistency = selected_dev_row['polarity_consistency'].iloc[0]
-                selected_test_row_polarity_1 = selected_dev_row['polarity_1'].iloc[0]
-                # print("testpoint_test")
-
-
-                if float(selected_test_row_distance) != 0 and not skip_argument(selected_test_row_content_1) and not skip_argument(selected_test_row_content_2) and float(selected_test_row_distance) <= max_distance:
-                    if float(selected_test_row_polarity_consistency) == 1:
-                        score = 1  # Normalize score to range 0 ... 1
-                        inp_example = InputExample(texts=[selected_test_row_content_1, selected_test_row_content_2], label=score)
-                        # print(score, selected_train_row['content_1'], selected_train_row['content_2'])
-                        test_data.append(inp_example)
-
-                    if float(selected_test_row_polarity_consistency) == -1:
-                        if float(selected_test_row_polarity_1) == 0:
-                            # score = 1
-                            # inp_example = InputExample(texts=[selected_train_row['content_1'], selected_train_row['content_2']], label=score)
-                            pass
-
-                        elif float(selected_test_row_polarity_1) != 0:
-                            score = 0
-                            inp_example = InputExample(texts=[selected_test_row_content_1, selected_test_row_content_2], label=score)
-
-                            test_data.append(inp_example)
-
-                    # train_data.append(inp_example)
-                    # if selected_train_row['content_1'] not in train_content_1_list:
-                    #     train_content_1_list.append(row['content_1'])
-                elif float(row['distance']) == 0:
-                    files_has_0_distance.append(file_path)
-
-                    # print(file_path, row['distance'])
-
-            if len(dev_data) >= max_pairs_size_dev:
-                random_dev_data = random.sample(dev_data, max_pairs_size_dev)
-            else:
-                # 如果数据不足，使用所有数据
-                random_dev_data = dev_data
-            
+    random_train_data = random.sample(train_data, min(len(train_data), max_pairs_size_train))
+    random_dev_data = random.sample(dev_data, min(len(dev_data), max_pairs_size_dev))
+    random_test_data = random.sample(test_data, min(len(test_data), max_pairs_size_test))
 
     print('len(train_data)', len(train_data), 'max_pairs_size_train', max_pairs_size_train)
 
-                # random_train_data = random.sample(train_data, max_pairs_size_train)
-    
+    train_dataloader = DataLoader(random_train_data, shuffle=True, batch_size=32)
+    dev_dataloader = DataLoader(random_dev_data, shuffle=True, batch_size=32)
+    test_dataloader = DataLoader(random_test_data, shuffle=True, batch_size=32)
 
-
-    
-    
-
-    train_dataloader = DataLoader(random_train_data, shuffle=True, batch_size=train_batch_size)
-    dev_dataloader = DataLoader(random_dev_data, shuffle=True, batch_size=train_batch_size)
-    test_dataloader = DataLoader(random_test_data, shuffle=True, batch_size=train_batch_size)
     print('datasize', max_pairs_size_train, max_pairs_size_dev, max_pairs_size_test)
-
-
     print("Number of training examples:", len(train_dataloader.dataset))
     print("Number of dev examples:", len(dev_dataloader.dataset))
     print("Number of test examples:", len(test_dataloader.dataset))
