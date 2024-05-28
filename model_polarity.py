@@ -517,8 +517,10 @@ def split_method_3(max_pairs_size, max_distance):
     random.seed(random_seed_num)
     torch.manual_seed(random_seed_num)
     np.random.seed(random_seed_num)
+
     all_files = os.listdir(debates_path)
     # csv_files = [file for file in all_files if file.endswith('.csv') and  (len(pd.read_csv(os.path.join(debates_path, file)))) < max_pairs_size  ]
+    
     train_ratio = 0.8
     dev_ratio = 0.1
     test_ratio = 0.1
@@ -528,9 +530,10 @@ def split_method_3(max_pairs_size, max_distance):
     test_data = []
     files_has_0_distance = []
 
-    max_pairs_size_train = max_pairs_size * train_ratio
-    max_pairs_size_dev = max_pairs_size * dev_ratio
-    max_pairs_size_test = max_pairs_size * test_ratio
+    max_pairs_size_train = round(max_pairs_size * train_ratio)
+    max_pairs_size_dev = round(max_pairs_size * dev_ratio)
+    max_pairs_size_test = round(max_pairs_size * test_ratio)
+
 
 
     def equation(r, n, S):
@@ -555,12 +558,9 @@ def split_method_3(max_pairs_size, max_distance):
                 pairs.append((lst[i], lst[j]))
         return pairs
 
-    # 示例列表
-    elements = ['a', 'b', 'c', 'd']
 
-    # 获取所有唯一配对
-    resulting_pairs = unique_pairs(elements)
-    print(resulting_pairs)
+
+
 
     train_argument_index_list_sum = []
     dev_argument_index_list_sum = []
@@ -569,7 +569,23 @@ def split_method_3(max_pairs_size, max_distance):
 
 
     for file in all_files:
+        print('filename', file)
         df = pd.read_csv(os.path.join(debates_path, file))
+ 
+
+        # file_path = os.path.join(debates_path, file)
+
+        # try:
+        #     df = pd.read_csv(file_path)
+        # except pd.errors.ParserError as e:
+        #     with open(file_path, 'r') as f:
+        #         lines = f.readlines()
+        #         for i, line in enumerate(lines):
+        #             if i == 15:  # 15表示第16行（索引从0开始）
+        #                 print(f"Line {i + 1}: {line}")
+        #     raise e
+
+        
 
         if file.endswith('.csv'):
             argument_index_list = []
@@ -579,14 +595,17 @@ def split_method_3(max_pairs_size, max_distance):
 
 
             S = len(argument_index_list)
-            n = train_ratio/(dev_ratio+test_ratio)
+            n = (dev_ratio+test_ratio)/(2 * train_ratio)
             ratio = solve_ratio(n, S)
-            print("The ratio y/x for n={} and x+y={} is approximately {:.4f}".format(n, S, ratio))
 
-            train_arguments_num = int(math.ceil(S * (n/(1+n))))
+
+
+            train_arguments_num = int(math.ceil(S * (ratio/(1+ratio))))
             dev_test_arguments_num = int(S - train_arguments_num)
             dev_arguments_num = int(math.ceil(dev_test_arguments_num/2))
             test_arguments_num = int(math.ceil(dev_test_arguments_num/2))
+            print("The train pair and dev+test pair ratio y/x for n={} and x+y={}, total list={}, arguments ration y/x is approximately {:.4f}".format(n,train_arguments_num+dev_test_arguments_num, S, ratio))
+
 
             train_argument_index_list = argument_index_list[:train_arguments_num]
             dev_argument_index_list = argument_index_list[train_arguments_num:(train_arguments_num+dev_arguments_num)]
@@ -601,7 +620,8 @@ def split_method_3(max_pairs_size, max_distance):
                 # print('test', df['index_1'], index_pair[0])
                 # print(df['index_2'], index_pair[1])
 
-                print('test', selected_train_row['content_1'].iloc[0], type(selected_train_row['content_1'].iloc[0]))
+                # print('test', selected_train_row['content_1'].iloc[0], type(selected_train_row['content_1'].iloc[0]))
+                # print("testpoint_train")
                 
 
 
@@ -630,17 +650,22 @@ def split_method_3(max_pairs_size, max_distance):
                 elif float(row['distance']) == 0:
                     files_has_0_distance.append(file_path)
 
-                    print(file_path, row['distance'])
-
+                    # print(file_path, row['distance'])
+            if len(train_data) >= max_pairs_size_train:
                 random_train_data = random.sample(train_data, max_pairs_size_train)
+            else:
+                    # 如果数据不足，使用所有数据
+                random_train_data = train_data            
+    
 
             for index_pair in dev_argument_index_list_pairs:
-                selected_dev_row = df[df['index_1'] == index_pair[0] and df['index_2'] == index_pair[1]]
+                selected_dev_row = df[(df['index_1'] == index_pair[0]) & (df['index_2'] == index_pair[1])]
                 selected_dev_row_distance = selected_dev_row['distance'].iloc[0]
                 selected_dev_row_content_1 = selected_dev_row['content_1'].iloc[0]
                 selected_dev_row_content_2 = selected_dev_row['content_2'].iloc[0]
                 selected_dev_row_polarity_consistency = selected_dev_row['polarity_consistency'].iloc[0]
                 selected_dev_row_polarity_1 = selected_dev_row['polarity_1'].iloc[0]
+                # print("testpoint_dev")
 
                 
 
@@ -672,16 +697,21 @@ def split_method_3(max_pairs_size, max_distance):
 
                     # print(file_path, row['distance'])
 
-                random_dev_data = random.sample(dev_data, max_pairs_size_dev)
+            if len(test_data) >= max_pairs_size_test:
+                random_test_data = random.sample(test_data, max_pairs_size_test)
+            else:
+                # 如果数据不足，使用所有数据
+                random_test_data = test_data
+            
 
             for index_pair in test_argument_index_list_pairs:
-                selected_test_row = df[df['index_1'] == index_pair[0] and df['index_2'] == index_pair[1]]
-                selected_test_row = df[df['index_1'] == index_pair[0] and df['index_2'] == index_pair[1]]
+                selected_test_row = df[(df['index_1'] == index_pair[0]) & (df['index_2'] == index_pair[1])]
                 selected_test_row_distance = selected_dev_row['distance'].iloc[0]
                 selected_test_row_content_1 = selected_dev_row['content_1'].iloc[0]
                 selected_test_row_content_2 = selected_dev_row['content_2'].iloc[0]
                 selected_test_row_polarity_consistency = selected_dev_row['polarity_consistency'].iloc[0]
                 selected_test_row_polarity_1 = selected_dev_row['polarity_1'].iloc[0]
+                # print("testpoint_test")
 
 
                 if float(selected_test_row_distance) != 0 and not skip_argument(selected_test_row_content_1) and not skip_argument(selected_test_row_content_2) and float(selected_test_row_distance) <= max_distance:
@@ -709,19 +739,35 @@ def split_method_3(max_pairs_size, max_distance):
                 elif float(row['distance']) == 0:
                     files_has_0_distance.append(file_path)
 
-                    print(file_path, row['distance'])
+                    # print(file_path, row['distance'])
 
-                random_test_data = random.sample(dev_data, max_pairs_size_dev)
+            if len(dev_data) >= max_pairs_size_dev:
+                random_dev_data = random.sample(dev_data, max_pairs_size_dev)
+            else:
+                # 如果数据不足，使用所有数据
+                random_dev_data = dev_data
+            
 
-            train_dataloader = DataLoader(train_data, shuffle=True, batch_size=train_batch_size)
-            dev_dataloader = DataLoader(dev_data, shuffle=True, batch_size=train_batch_size)
-            test_dataloader = DataLoader(test_data, shuffle=True, batch_size=train_batch_size)
+    print('len(train_data)', len(train_data), 'max_pairs_size_train', max_pairs_size_train)
 
-            print("Number of training examples:", len(train_dataloader.dataset))
-            print("Number of dev examples:", len(dev_dataloader.dataset))
-            print("Number of test examples:", len(test_dataloader.dataset))
+                # random_train_data = random.sample(train_data, max_pairs_size_train)
+    
 
-            return train_dataloader, dev_dataloader, test_dataloader, train_data, dev_data, test_data
+
+    
+    
+
+    train_dataloader = DataLoader(random_train_data, shuffle=True, batch_size=train_batch_size)
+    dev_dataloader = DataLoader(random_dev_data, shuffle=True, batch_size=train_batch_size)
+    test_dataloader = DataLoader(random_test_data, shuffle=True, batch_size=train_batch_size)
+    print('datasize', max_pairs_size_train, max_pairs_size_dev, max_pairs_size_test)
+
+
+    print("Number of training examples:", len(train_dataloader.dataset))
+    print("Number of dev examples:", len(dev_dataloader.dataset))
+    print("Number of test examples:", len(test_dataloader.dataset))
+
+    return train_dataloader, dev_dataloader, test_dataloader, train_data, dev_data, test_data
 
 
 
