@@ -51,7 +51,8 @@ pooling_model = models.Pooling(word_embedding_model.get_word_embedding_dimension
 
 model = SentenceTransformer(modules=[word_embedding_model, pooling_model])
 
-
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model.to(device)
 
 logging.info("Read STSbenchmark train dataset")
 # Apply mean pooling to get one fixed sized sentence vector
@@ -529,7 +530,7 @@ model.fit(train_objectives=[(train_dataloader, train_loss)],
           warmup_steps=warmup_steps,
           output_path=model_save_path)
 
-model = SentenceTransformer(model_save_path)
+# model = SentenceTransformer(model_save_path)
 test_evaluator = EmbeddingSimilarityEvaluator.from_input_examples(test_data, name='sts-test')
 # test_evaluator = ExtendedEmbeddingSimilarityEvaluator(test_data, name='sts-test')
 

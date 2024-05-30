@@ -518,24 +518,21 @@ def split_method_3(max_pairs_size, max_distance):
     random.seed(random_seed_num)
     torch.manual_seed(random_seed_num)
     np.random.seed(random_seed_num)
-
+    
     all_files = os.listdir(debates_path)
-    # csv_files = [file for file in all_files if file.endswith('.csv') and  (len(pd.read_csv(os.path.join(debates_path, file)))) < max_pairs_size  ]
     
     train_ratio = 0.8
     dev_ratio = 0.1
     test_ratio = 0.1
 
-    train_data = []
-    dev_data = []
-    test_data = []
-    files_has_0_distance = []
-
     max_pairs_size_train = round(max_pairs_size * train_ratio)
     max_pairs_size_dev = round(max_pairs_size * dev_ratio)
     max_pairs_size_test = round(max_pairs_size * test_ratio)
 
-
+    train_data = []
+    dev_data = []
+    test_data = []
+    files_has_0_distance = []
 
     def equation(r, n, S):
         x = S / (1 + r)
@@ -552,40 +549,7 @@ def split_method_3(max_pairs_size, max_distance):
     def unique_pairs(lst):
         return [(lst[i], lst[j]) for i in range(len(lst)) for j in range(i + 1, len(lst))]
 
-
-
-
-
-    # train_argument_index_list_sum = []
-    # dev_argument_index_list_sum = []
-    # test_argument_index_list_sum = []
-    def process_file(file):
-        df = pd.read_csv(os.path.join(debates_path, file))
-        argument_index_list = df['index_1'].unique().tolist()
-        S = len(argument_index_list)
-        n = (dev_ratio + test_ratio) / (2 * train_ratio)
-        ratio = solve_ratio(n, S)
-        
-        train_arguments_num = int(math.ceil(S * (ratio / (1 + ratio))))
-        dev_test_arguments_num = S - train_arguments_num
-        dev_arguments_num = int(math.ceil(dev_test_arguments_num / 2))
-        test_arguments_num = dev_test_arguments_num - dev_arguments_num
-        
-        train_argument_index_list = argument_index_list[:train_arguments_num]
-        dev_argument_index_list = argument_index_list[train_arguments_num:(train_arguments_num + dev_arguments_num)]
-        test_argument_index_list = argument_index_list[(train_arguments_num + dev_arguments_num):]
-        
-        train_argument_index_list_pairs = unique_pairs(train_argument_index_list)
-        dev_argument_index_list_pairs = unique_pairs(dev_argument_index_list)
-        test_argument_index_list_pairs = unique_pairs(test_argument_index_list)
-        
-        train_data = process_pairs(df, train_argument_index_list_pairs, max_distance)
-        dev_data = process_pairs(df, dev_argument_index_list_pairs, max_distance)
-        test_data = process_pairs(df, test_argument_index_list_pairs, max_distance)
-        
-        return train_data, dev_data, test_data, files_has_0_distance
-
-    def process_pairs(df, pairs, max_distance):
+    def process_pairs(df, pairs, data, max_distance):
         filtered_data = []
         for index_pair in pairs:
             selected_row = df[(df['index_1'] == index_pair[0]) & (df['index_2'] == index_pair[1])]
@@ -610,15 +574,41 @@ def split_method_3(max_pairs_size, max_distance):
             filtered_data.append(inp_example)
         return filtered_data
 
-    with ProcessPoolExecutor() as executor:
-        results = list(executor.map(process_file, all_files))
-    
-    for train, dev, test, zero_distance_files in results:
-        train_data.extend(train)
-        dev_data.extend(dev)
-        test_data.extend(test)
-        files_has_0_distance.extend(zero_distance_files)
+    for file in all_files:
+        if not file.endswith('.csv'):
+            continue
+        print('filename', file)
+        df = pd.read_csv(os.path.join(debates_path, file))
+        
+        argument_index_list = df['index_1'].unique().tolist()
+        S = len(argument_index_list)
+        n = (dev_ratio + test_ratio) / (2 * train_ratio)
+        ratio = solve_ratio(n, S)
+        
+        train_arguments_num = int(math.ceil(S * (ratio / (1 + ratio))))
+        dev_test_arguments_num = S - train_arguments_num
+        dev_arguments_num = int(math.ceil(dev_test_arguments_num / 2))
+        test_arguments_num = dev_test_arguments_num - dev_arguments_num
 
+        print("The train pair and dev+test pair ratio y/x for n={} and x+y={}, total list={}, arguments ratio y/x is approximately {:.4f}".format(
+            n, train_arguments_num + dev_test_arguments_num, S, ratio))
+        
+        train_argument_index_list = argument_index_list[:train_arguments_num]
+        dev_argument_index_list = argument_index_list[train_arguments_num:(train_arguments_num + dev_arguments_num)]
+        test_argument_index_list = argument_index_list[(train_arguments_num + dev_arguments_num):]
+        
+        train_argument_index_list_pairs = unique_pairs(train_argument_index_list)
+        dev_argument_index_list_pairs = unique_pairs(dev_argument_index_list)
+        test_argument_index_list_pairs = unique_pairs(test_argument_index_list)
+
+        train_data.extend(process_pairs(df, train_argument_index_list_pairs, train_data, max_distance))
+        dev_data.extend(process_pairs(df, dev_argument_index_list_pairs, dev_data, max_distance))
+        test_data.extend(process_pairs(df, test_argument_index_list_pairs, test_data, max_distance))
+
+    # 打印列表内容以检查
+    print("Files with 0 distance:", files_has_0_distance)
+
+    # 写入日志文件
     if files_has_0_distance:
         log_file_path = "path/to/logs/files_has_0_distance.txt"
         os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
@@ -694,7 +684,7 @@ model.fit(train_objectives=[(train_dataloader, train_loss)],
           warmup_steps=warmup_steps,
           output_path=model_save_path)
 
-model = SentenceTransformer(model_save_path)
+# model = SentenceTransformer(model_save_path)
 model = model.to(device)
 
     # 进行后续处理
