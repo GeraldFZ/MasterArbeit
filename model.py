@@ -3,7 +3,7 @@ from transformers import AutoTokenizer, AutoConfig
 import torch
 import pandas as pd
 import os
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from sentence_transformers.evaluation import EmbeddingSimilarityEvaluator
 
 import logging
@@ -17,6 +17,9 @@ import sys
 import json
 import numpy as np
 from sentence_transformers import util
+import torch.nn as nn
+
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 # print(torch.cuda.is_available())
 
@@ -78,6 +81,43 @@ def skip_argument(text):
 
     return bool(re.match(pattern, text))
 
+class InputExample:
+    def __init__(self, texts, label):
+        self.texts = texts
+        self.label = label
+
+class CustomDataset(Dataset):
+    def __init__(self, examples):
+        self.examples = examples
+
+    def __len__(self):
+        return len(self.examples)
+
+    def __getitem__(self, idx):
+        return self.examples[idx]
+
+def process_file(file_path, max_pairs_size, max_distance):
+    df = pd.read_csv(file_path)
+    sampled_df = df if len(df) < max_pairs_size else df.sample(n=max_pairs_size, random_state=random_seed_num)
+
+    samples = []
+    content_1_list = []
+    files_has_0_distance = []
+
+    for index, row in sampled_df.iterrows():
+        if float(row['distance']) != 0 and not skip_argument(row['content_1']) and not skip_argument(row['content_2']) and float(row['distance']) <= max_distance:
+            score = 1 / float(row['distance'])
+            inp_example = InputExample(texts=[row['content_1'], row['content_2']], label=score)
+            samples.append(inp_example)
+            file_index, _ = os.path.splitext(os.path.basename(file_path))
+            if row['content_1'] not in [content['content'] for content in content_1_list]:
+                content_1_list.append({"file_index": str(file_index), "content": row['content_1']})
+        elif float(row['distance']) == 0:
+            files_has_0_distance.append(file_path)
+    print()
+
+    return samples, content_1_list, files_has_0_distance
+
 # csv_files = [file for file in all_files if file.endswith('.csv') and (len(pd.read_csv(os.path.join(debates_path, file))) - 1) < 100000]
 def split_method_1(max_pairs_size, max_distance):
     random.seed(random_seed_num)
@@ -85,137 +125,202 @@ def split_method_1(max_pairs_size, max_distance):
     np.random.seed(random_seed_num)
 
     all_files = os.listdir(debates_path)
-    # csv_files = [file for file in all_files if file.endswith('.csv') and  (len(pd.read_csv(os.path.join(debates_path, file)))) < max_pairs_size  ]
-    less_than_limit_files = []
-    over_limit_files = []
-    for file in all_files:
-        if file.endswith('.csv'):
-            if (len(pd.read_csv(os.path.join(debates_path, file)))) < max_pairs_size:
-                less_than_limit_files.append(file)
-            elif (len(pd.read_csv(os.path.join(debates_path, file)))) >= max_pairs_size:
-                over_limit_files.append(file)
+    less_than_limit_files = [file for file in all_files if file.endswith('.csv') and len(pd.read_csv(os.path.join(debates_path, file))) < max_pairs_size]
+    over_limit_files = [file for file in all_files if file.endswith('.csv') and len(pd.read_csv(os.path.join(debates_path, file))) >= max_pairs_size]
+    print(less_than_limit_files[0:10])
+    print(over_limit_files[0:10])
     random.shuffle(over_limit_files)
     random.shuffle(less_than_limit_files)
 
-    # shuffled_csv_files = csv_files
     samples = []
-
-    # 逐个读取CSV文件
     content_1_list = []
+    files_has_0_distance = []
 
-    for file in less_than_limit_files:
+    with ProcessPoolExecutor() as executor:
+        futures = [executor.submit(process_file, os.path.join(debates_path, file), max_pairs_size, max_distance) for file in less_than_limit_files]
+        for future in as_completed(futures):
+            file_samples, file_content_1_list, file_has_0_distance = future.result()
+            samples.extend(file_samples)
+            content_1_list.extend(file_content_1_list)
+            files_has_0_distance.extend(file_has_0_distance)
 
-        file_path = os.path.join(debates_path, file)
-        # 读取CSV文件
-        df = pd.read_csv(file_path)
-
-        number_of_pairs = len(df)
-        print(file, number_of_pairs)
-        print((len(pd.read_csv(os.path.join(debates_path, file)))))
-
-        # 按行处理数据
-        files_has_0_distance = []
-        for index, row in df.iterrows():
-            if float(row['distance']) != 0 and not skip_argument(row['content_1']) and not skip_argument(row['content_2']) and float(row['distance']) <= max_distance:
-                score =  1/ float(row['distance']) # Normalize score to range 0 ... 1
-                if type(score) is not  float:
-                    print("scoretype", type(score))
-                inp_example = InputExample(texts=[row['content_1'], row['content_2']], label=score)
-                # print(score, row['content_1'], row['content_2'])
-
-                samples.append(inp_example)
-                file_index, extension = os.path.splitext(file)
-                if row['content_1'] not in content_1_list:
-                    content_1_list.append({"file_index": str(file_index), "content": row['content_1']})
-
-            elif float(row['distance']) == 0:
-                files_has_0_distance.append(file_path)
-
-                print(file_path, row['distance'])
-    for file in over_limit_files:
-
-        file_path = os.path.join(debates_path, file)
-        # 读取CSV文件
-        df = pd.read_csv(file_path)
-        sampled_df = df.sample(n=max_pairs_size, random_state=random_seed_num)
-
-        number_of_pairs = len(sampled_df)
-        print(file, number_of_pairs)
-        print(len(sampled_df))
-
-        # 按行处理数据
-        files_has_0_distance = []
-        for index, row in sampled_df.iterrows():
-            if float(row['distance']) != 0 and not skip_argument(row['content_1']) and not skip_argument(row['content_2']) and float(row['distance']) <= max_distance:
-                score =  1/ float(row['distance']) # Normalize score to range 0 ... 1
-                if type(score) is not  float:
-                    print("scoretype", type(score))
-                inp_example = InputExample(texts=[row['content_1'], row['content_2']], label=score)
-                # print(score, row['content_1'], row['content_2'])
-
-                samples.append(inp_example)
-                file_index, extension = os.path.splitext(file)
-                if row['content_1'] not in content_1_list:
-                    content_1_list.append({"file_index": str(file_index), "content": row['content_1']})
-
-            elif float(row['distance']) == 0:
-                files_has_0_distance.append(file_path)
-
-                print(file_path, row['distance'])
     for content_1 in content_1_list:
-        # print("testhahaha", content_1,type(content_1))
         rest_of_contents = [f for f in content_1_list if f["file_index"] != content_1["file_index"]]
         random_negative_arguments = []
         while len(random_negative_arguments) < negative_sample_num:
             random_index_content = random.choice(rest_of_contents)
             random_content = random_index_content["content"]
-            # print(random_content)
             if random_content not in random_negative_arguments:
                 random_negative_arguments.append(random_content)
 
         for negative_argument in random_negative_arguments:
-            # print("test", content_1, negative_argument, type(negative_argument))
             neg_inp_example = InputExample(texts=[content_1["content"], negative_argument], label=0.0)
             samples.append(neg_inp_example)
-    print("shuffle seed test, negative", random_negative_arguments[:10])
 
-    file_name = "files_has_0_distance.txt"
-
-    # 使用 'with' 语句打开文件进行写入，确保文件最后会被正确关闭
-    with open(file_name, "w") as file:
-        # 遍历列表，写入每一行
+    with open("files_has_0_distance.txt", "w") as file:
         for line in files_has_0_distance:
-            file.write(line + "\n")  # "\n" 是换行符
-
-    # print(samples, type(samples))
+            file.write(line + "\n")
 
     random.shuffle(samples)
-    shuffled_samples = samples
-    sample_collection = shuffled_samples
-    print("shuffle seed test", shuffled_samples[:10])
-
-
+    sample_collection = samples
 
     train_ratio = 0.8
     dev_ratio = 0.1
     test_ratio = 0.1
 
     train_data, temp_data = train_test_split(sample_collection, test_size=(1 - train_ratio), shuffle=True, random_state=random_seed_num)
-    print("shuffle seed test, trainset", train_data[:10])
+    dev_data, test_data = train_test_split(temp_data, test_size=0.5, shuffle=True, random_state=random_seed_num)
 
-    dev_data, test_data = train_test_split(temp_data, test_size=0.5, shuffle=True, random_state= random_seed_num)
-    print("shuffle seed test, trainset", test_data[:10])
+    train_dataset = CustomDataset(train_data)
+    dev_dataset = CustomDataset(dev_data)
+    test_dataset = CustomDataset(test_data)
 
+    train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=train_batch_size, pin_memory=True)
+    dev_dataloader = DataLoader(dev_dataset, shuffle=True, batch_size=train_batch_size, pin_memory=True)
+    test_dataloader = DataLoader(test_dataset, shuffle=True, batch_size=train_batch_size, pin_memory=True)
 
-# print(type(dev_data[0]))
-
-    train_dataloader = DataLoader(train_data, shuffle=True, batch_size=train_batch_size)
-    dev_dataloader = DataLoader(dev_data, shuffle=True, batch_size=train_batch_size)
-    test_dataloader = DataLoader(test_data,shuffle=True, batch_size=train_batch_size)
     print("Number of training examples:", len(train_dataloader.dataset))
     print("Number of dev examples:", len(dev_dataloader.dataset))
     print("Number of test examples:", len(test_dataloader.dataset))
+
     return train_dataloader, dev_dataloader, test_dataloader, train_data, dev_data, test_data
+#     random.seed(random_seed_num)
+#     torch.manual_seed(random_seed_num)
+#     np.random.seed(random_seed_num)
+
+#     all_files = os.listdir(debates_path)
+#     # csv_files = [file for file in all_files if file.endswith('.csv') and  (len(pd.read_csv(os.path.join(debates_path, file)))) < max_pairs_size  ]
+#     less_than_limit_files = []
+#     over_limit_files = []
+#     for file in all_files:
+#         if file.endswith('.csv'):
+#             if (len(pd.read_csv(os.path.join(debates_path, file)))) < max_pairs_size:
+#                 less_than_limit_files.append(file)
+#             elif (len(pd.read_csv(os.path.join(debates_path, file)))) >= max_pairs_size:
+#                 over_limit_files.append(file)
+#     random.shuffle(over_limit_files)
+#     random.shuffle(less_than_limit_files)
+
+#     # shuffled_csv_files = csv_files
+#     samples = []
+
+#     # 逐个读取CSV文件
+#     content_1_list = []
+
+#     for file in less_than_limit_files:
+
+#         file_path = os.path.join(debates_path, file)
+#         # 读取CSV文件
+#         df = pd.read_csv(file_path)
+
+#         number_of_pairs = len(df)
+#         print(file, number_of_pairs)
+#         print((len(pd.read_csv(os.path.join(debates_path, file)))))
+
+#         # 按行处理数据
+#         files_has_0_distance = []
+#         for index, row in df.iterrows():
+#             if float(row['distance']) != 0 and not skip_argument(row['content_1']) and not skip_argument(row['content_2']) and float(row['distance']) <= max_distance:
+#                 score =  1/ float(row['distance']) # Normalize score to range 0 ... 1
+#                 if type(score) is not  float:
+#                     print("scoretype", type(score))
+#                 inp_example = InputExample(texts=[row['content_1'], row['content_2']], label=score)
+#                 # print(score, row['content_1'], row['content_2'])
+
+#                 samples.append(inp_example)
+#                 file_index, extension = os.path.splitext(file)
+#                 if row['content_1'] not in content_1_list:
+#                     content_1_list.append({"file_index": str(file_index), "content": row['content_1']})
+
+#             elif float(row['distance']) == 0:
+#                 files_has_0_distance.append(file_path)
+
+#                 print(file_path, row['distance'])
+#     for file in over_limit_files:
+
+#         file_path = os.path.join(debates_path, file)
+#         # 读取CSV文件
+#         df = pd.read_csv(file_path)
+#         sampled_df = df.sample(n=max_pairs_size, random_state=random_seed_num)
+
+#         number_of_pairs = len(sampled_df)
+#         print(file, number_of_pairs)
+#         print(len(sampled_df))
+
+#         # 按行处理数据
+#         files_has_0_distance = []
+#         for index, row in sampled_df.iterrows():
+#             if float(row['distance']) != 0 and not skip_argument(row['content_1']) and not skip_argument(row['content_2']) and float(row['distance']) <= max_distance:
+#                 score =  1/ float(row['distance']) # Normalize score to range 0 ... 1
+#                 if type(score) is not  float:
+#                     print("scoretype", type(score))
+#                 inp_example = InputExample(texts=[row['content_1'], row['content_2']], label=score)
+#                 # print(score, row['content_1'], row['content_2'])
+
+#                 samples.append(inp_example)
+#                 file_index, extension = os.path.splitext(file)
+#                 if row['content_1'] not in content_1_list:
+#                     content_1_list.append({"file_index": str(file_index), "content": row['content_1']})
+
+#             elif float(row['distance']) == 0:
+#                 files_has_0_distance.append(file_path)
+
+#                 print(file_path, row['distance'])
+#     for content_1 in content_1_list:
+#         # print("testhahaha", content_1,type(content_1))
+#         rest_of_contents = [f for f in content_1_list if f["file_index"] != content_1["file_index"]]
+#         random_negative_arguments = []
+#         while len(random_negative_arguments) < negative_sample_num:
+#             random_index_content = random.choice(rest_of_contents)
+#             random_content = random_index_content["content"]
+#             # print(random_content)
+#             if random_content not in random_negative_arguments:
+#                 random_negative_arguments.append(random_content)
+
+#         for negative_argument in random_negative_arguments:
+#             # print("test", content_1, negative_argument, type(negative_argument))
+#             neg_inp_example = InputExample(texts=[content_1["content"], negative_argument], label=0.0)
+#             samples.append(neg_inp_example)
+#     print("shuffle seed test, negative", random_negative_arguments[:10])
+
+#     file_name = "files_has_0_distance.txt"
+
+#     # 使用 'with' 语句打开文件进行写入，确保文件最后会被正确关闭
+#     with open(file_name, "w") as file:
+#         # 遍历列表，写入每一行
+#         for line in files_has_0_distance:
+#             file.write(line + "\n")  # "\n" 是换行符
+
+#     # print(samples, type(samples))
+
+#     random.shuffle(samples)
+#     shuffled_samples = samples
+#     sample_collection = shuffled_samples
+#     print("shuffle seed test", shuffled_samples[:10])
+
+
+
+#     train_ratio = 0.8
+#     dev_ratio = 0.1
+#     test_ratio = 0.1
+
+#     train_data, temp_data = train_test_split(sample_collection, test_size=(1 - train_ratio), shuffle=True, random_state=random_seed_num)
+#     print("shuffle seed test, trainset", train_data[:10])
+
+#     dev_data, test_data = train_test_split(temp_data, test_size=0.5, shuffle=True, random_state= random_seed_num)
+#     print("shuffle seed test, trainset", test_data[:10])
+
+
+# # print(type(dev_data[0]))
+
+#     train_dataloader = DataLoader(train_data, shuffle=True, batch_size=train_batch_size)
+#     dev_dataloader = DataLoader(dev_data, shuffle=True, batch_size=train_batch_size)
+#     test_dataloader = DataLoader(test_data,shuffle=True, batch_size=train_batch_size)
+#     print("Number of training examples:", len(train_dataloader.dataset))
+#     print("Number of dev examples:", len(dev_dataloader.dataset))
+#     print("Number of test examples:", len(test_dataloader.dataset))
+#     return train_dataloader, dev_dataloader, test_dataloader, train_data, dev_data, test_data
+
 
 
 # Split the csv files first method2
