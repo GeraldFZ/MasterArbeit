@@ -5,7 +5,6 @@ import pandas as pd
 import os
 from torch.utils.data import DataLoader, Dataset
 from sentence_transformers.evaluation import EmbeddingSimilarityEvaluator
-
 import logging
 import math
 from datetime import datetime
@@ -18,8 +17,9 @@ import json
 import numpy as np
 from sentence_transformers import util
 import torch.nn as nn
-
+from torch.nn import DataParallel
 from concurrent.futures import ProcessPoolExecutor, as_completed
+import torch.nn.functional as F
 
 # print(torch.cuda.is_available())
 
@@ -55,7 +55,9 @@ pooling_model = models.Pooling(word_embedding_model.get_word_embedding_dimension
 model = SentenceTransformer(modules=[word_embedding_model, pooling_model])
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DataParallel(model)
 model.to(device)
+
 
 logging.info("Read STSbenchmark train dataset")
 # Apply mean pooling to get one fixed sized sentence vector
@@ -73,29 +75,42 @@ debates_path = '/mount/studenten5/projects/fanze/masterarbeit_data/csv_nofilter'
 
 
 # model_save_path = '/Users/fanzhe/Desktop/master_thesis/Data/model_ouput/training_stsbenchmark_'+model_name.replace("/", "-")+'-'+datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-model_save_path = '/mount/studenten5/projects/fanze/masterarbeit_data/model_output_record/training_stsbenchmark_'+model_name.replace("/", "-")+'-'+datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+model_save_path = '/mount/studenten5/projects/fanze/masterarbeit_data/model_output_record_realloss/training_stsbenchmark_'+model_name.replace("/", "-")+'-'+datetime.now().strftime("%Y-%m-%d_%H-%M-%S"+'_meth'+str(split_method_index)+'_pairsize'+str(csv_pair_size_limit)+'_dis'+str(distance_limit))
+# class AdjustedCosineSimilarityLoss(nn.Module):
+#     def __init__(self):
+#         super(AdjustedCosineSimilarityLoss, self).__init__()
 
+#     def forward(self, embeddings1, embeddings2, labels):
+#         # 计算余弦相似度
+#         cosine_similarity = F.cosine_similarity(embeddings1, embeddings2)
+        
+#         # 将余弦相似度调整到 [0, 1] 范围
+#         adjusted_similarity = (cosine_similarity + 1) / 2
+        
+#         # 计算损失，这里使用均方误差作为例子
+#         loss = F.cosine_embedding_loss(adjusted_similarity, labels)
+#         return loss
 
 def skip_argument(text):
     pattern = r"-> See \d+(\.\d+)+\."
 
     return bool(re.match(pattern, text))
 
-class InputExample:
-    def __init__(self, texts, label):
-        self.texts = texts
-        self.label = label
+# class InputExample:
+#     def __init__(self, texts, label):
+#         self.texts = texts
+#         self.label = label
 
-class CustomDataset(Dataset):
-    def __init__(self, examples):
-        self.examples = examples
+# class CustomDataset(Dataset):
+#     def __init__(self, examples):
+#         self.examples = examples
 
-    def __len__(self):
-        return len(self.examples)
+#     def __len__(self):
+#         return len(self.examples)
 
-    def __getitem__(self, idx):
-        return self.examples[idx]
-
+#     def __getitem__(self, idx):
+#         return self.examples[idx]
+# 按照最大对数的限制读取并过滤文件，返回该文件中符合距离的argument对sample，不重复的content列表和0distance文件
 def process_file(file_path, max_pairs_size, max_distance):
     df = pd.read_csv(file_path)
     sampled_df = df if len(df) < max_pairs_size else df.sample(n=max_pairs_size, random_state=random_seed_num)
@@ -114,7 +129,7 @@ def process_file(file_path, max_pairs_size, max_distance):
                 content_1_list.append({"file_index": str(file_index), "content": row['content_1']})
         elif float(row['distance']) == 0:
             files_has_0_distance.append(file_path)
-    print()
+    
 
     return samples, content_1_list, files_has_0_distance
 
@@ -127,10 +142,11 @@ def split_method_1(max_pairs_size, max_distance):
     all_files = os.listdir(debates_path)
     less_than_limit_files = [file for file in all_files if file.endswith('.csv') and len(pd.read_csv(os.path.join(debates_path, file))) < max_pairs_size]
     over_limit_files = [file for file in all_files if file.endswith('.csv') and len(pd.read_csv(os.path.join(debates_path, file))) >= max_pairs_size]
-    print(less_than_limit_files[0:10])
-    print(over_limit_files[0:10])
+    
     random.shuffle(over_limit_files)
     random.shuffle(less_than_limit_files)
+    print(less_than_limit_files[0:10])
+    print(over_limit_files[0:10])
 
     samples = []
     content_1_list = []
@@ -138,6 +154,13 @@ def split_method_1(max_pairs_size, max_distance):
 
     with ProcessPoolExecutor() as executor:
         futures = [executor.submit(process_file, os.path.join(debates_path, file), max_pairs_size, max_distance) for file in less_than_limit_files]
+        for future in as_completed(futures):
+            file_samples, file_content_1_list, file_has_0_distance = future.result()
+            samples.extend(file_samples)
+            content_1_list.extend(file_content_1_list)
+            files_has_0_distance.extend(file_has_0_distance)
+    with ProcessPoolExecutor() as executor:
+        futures = [executor.submit(process_file, os.path.join(debates_path, file), max_pairs_size, max_distance) for file in over_limit_files]
         for future in as_completed(futures):
             file_samples, file_content_1_list, file_has_0_distance = future.result()
             samples.extend(file_samples)
@@ -171,13 +194,13 @@ def split_method_1(max_pairs_size, max_distance):
     train_data, temp_data = train_test_split(sample_collection, test_size=(1 - train_ratio), shuffle=True, random_state=random_seed_num)
     dev_data, test_data = train_test_split(temp_data, test_size=0.5, shuffle=True, random_state=random_seed_num)
 
-    train_dataset = CustomDataset(train_data)
-    dev_dataset = CustomDataset(dev_data)
-    test_dataset = CustomDataset(test_data)
+    # train_dataset = CustomDataset(train_data)
+    # dev_dataset = CustomDataset(dev_data)
+    # test_dataset = CustomDataset(test_data)
 
-    train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=train_batch_size, pin_memory=True)
-    dev_dataloader = DataLoader(dev_dataset, shuffle=True, batch_size=train_batch_size, pin_memory=True)
-    test_dataloader = DataLoader(test_dataset, shuffle=True, batch_size=train_batch_size, pin_memory=True)
+    train_dataloader = DataLoader(train_data, shuffle=True, batch_size=train_batch_size, pin_memory=True)
+    dev_dataloader = DataLoader(dev_data, shuffle=True, batch_size=train_batch_size, pin_memory=True)
+    test_dataloader = DataLoader(test_data, shuffle=True, batch_size=train_batch_size, pin_memory=True)
 
     print("Number of training examples:", len(train_dataloader.dataset))
     print("Number of dev examples:", len(dev_dataloader.dataset))
@@ -325,218 +348,361 @@ def split_method_1(max_pairs_size, max_distance):
 
 # Split the csv files first method2
 def split_method_2(max_pairs_size, max_distance):
+
     random.seed(random_seed_num)
     torch.manual_seed(random_seed_num)
+    np.random.seed(random_seed_num)
+
     all_files = os.listdir(debates_path)
-    # csv_files = [file for file in all_files if file.endswith('.csv') and (len(pd.read_csv(os.path.join(debates_path, file)))) < max_pairs_size]
-    less_than_limit_files = []
-    over_limit_files = []
-    for file in all_files:
-        if file.endswith('.csv'):
-            if (len(pd.read_csv(os.path.join(debates_path, file)))) < max_pairs_size:
-                less_than_limit_files.append(file)
-            elif (len(pd.read_csv(os.path.join(debates_path, file)))) >= max_pairs_size:
-                over_limit_files.append(file)
+    less_than_limit_files = [file for file in all_files if file.endswith('.csv') and len(pd.read_csv(os.path.join(debates_path, file))) < max_pairs_size]
+    over_limit_files = [file for file in all_files if file.endswith('.csv') and len(pd.read_csv(os.path.join(debates_path, file))) >= max_pairs_size]
+
     random.shuffle(over_limit_files)
     random.shuffle(less_than_limit_files)
     csv_files_after_filter = over_limit_files + less_than_limit_files
     random.shuffle(csv_files_after_filter)
+    
+    print(less_than_limit_files[0:10])
+    print(over_limit_files[0:10])
 
     train_ratio = 0.8
     dev_ratio = 0.1
     test_ratio = 0.1
 
-    # 确保所有比例加起来等于1
     assert train_ratio + dev_ratio + test_ratio == 1, "Ratios must sum up to 1."
 
-
-
-    # Calculate the number of files for train, dev, and test sets
     train_files_count = int(train_ratio * len(csv_files_after_filter))
     dev_files_count = int(dev_ratio * len(csv_files_after_filter))
     test_files_count = int(test_ratio * len(csv_files_after_filter))
 
-    # Make sure the total count does not exceed the number of available files
-    assert train_files_count + dev_files_count + test_files_count <= len(
-        csv_files_after_filter), "File counts exceed total."
+    assert train_files_count + dev_files_count + test_files_count <= len(csv_files_after_filter), "File counts exceed total."
 
-    # Split the file paths into training, development, and testing sets
     train_files = csv_files_after_filter[:train_files_count]
     dev_files = csv_files_after_filter[train_files_count:train_files_count + dev_files_count]
     test_files = csv_files_after_filter[train_files_count + dev_files_count:]
-    print("train files lenth", len(train_files))
-    print("dev files lenth", len(dev_files))
-    print("test files lenth", len(test_files))
-    
+    print("train files length", len(train_files))
+    print("dev files length", len(dev_files))
+    print("test files length", len(test_files))
+
     train_data = []
     dev_data = []
     test_data = []
     files_has_0_distance = []
 
-    for file in train_files:
-        train_content_1_list = []
-        file_path = os.path.join(debates_path, file)
-        # read csv
-        if file in less_than_limit_files:
-            df = pd.read_csv(file_path)
-        elif file in over_limit_files:
-            pre_df = pd.read_csv(file_path)
-            df = pre_df.sample(n=max_pairs_size, random_state=random_seed_num)
+    
 
-        print(file_path)
+    # with ProcessPoolExecutor() as executor:
+    #     futures = [executor.submit(process_file, os.path.join(debates_path, file), max_pairs_size, max_distance) for file in train_files]
+    #     for future in as_completed(futures):
+    #         file_samples, file_content_1_list, file_has_0_distance = future.result()
+    #         samples.extend(file_samples)
+    #         content_1_list.extend(file_content_1_list)
+    #         files_has_0_distance.extend(file_has_0_distance)
+    # with ProcessPoolExecutor() as executor:
+    #     futures = [executor.submit(process_file, os.path.join(debates_path, file), max_pairs_size, max_distance) for file in dev_files]
+    #     for future in as_completed(futures):
+    #         file_samples, file_content_1_list, file_has_0_distance = future.result()
+    #         samples.extend(file_samples)
+    #         content_1_list.extend(file_content_1_list)
+    #         files_has_0_distance.extend(file_has_0_distance)
+    # with ProcessPoolExecutor() as executor:
+    #     futures = [executor.submit(process_file, os.path.join(debates_path, file), max_pairs_size, max_distance) for file in test_files]
+    #     for future in as_completed(futures):
+    #         file_samples, file_content_1_list, file_has_0_distance = future.result()
+    #         samples.extend(file_samples)
+    #         content_1_list.extend(file_content_1_list)
+    #         files_has_0_distance.extend(file_has_0_distance)
 
-        # proces data by row
-        for index, row in df.iterrows():
-            if float(row['distance']) != 0 and not skip_argument(row['content_1']) and not skip_argument(row['content_2']) and float(row['distance']) <= max_distance:
-                score =  1/ float(row['distance']) # Normalize score to range 0 ... 1
+    def process_files_parallel(files):
+        samples = []
+        content_1_list = []
+        with ProcessPoolExecutor() as executor:
+            futures = [executor.submit(process_file, os.path.join(debates_path, file), max_pairs_size, max_distance) for file in files]
+            for future in as_completed(futures):
+                file_samples, file_content_1_list, file_has_0_distance = future.result()
+                samples.extend(file_samples)
+                content_1_list.extend(file_content_1_list)
+                files_has_0_distance.extend(file_has_0_distance)
+        return samples, content_1_list, files_has_0_distance
 
+    train_samples, train_content_1_list, train_files_has_0_distance = process_files_parallel(train_files)
+    dev_samples, dev_content_1_list, dev_files_has_0_distance = process_files_parallel(dev_files)
+    test_samples, test_content_1_list, test_files_has_0_distance = process_files_parallel(test_files)
+    print('train_content_1_list', train_content_1_list[:3], len(train_content_1_list))
+    print('3 for train dev test', train_samples[:3], dev_samples[:3], test_samples[:3])
 
-                inp_example = InputExample(texts=[row['content_1'], row['content_2']], label=score)
-                # print(score, row['content_1'], row['content_2'])
+    train_data.extend(train_samples)
+    dev_data.extend(dev_samples)
+    test_data.extend(test_samples)
+    files_has_0_distance.extend(train_files_has_0_distance)
+    files_has_0_distance.extend(dev_files_has_0_distance)
+    files_has_0_distance.extend(test_files_has_0_distance)
 
-                train_data.append(inp_example)
-                if row['content_1'] not in train_content_1_list:
-                    train_content_1_list.append(row['content_1'])
-            elif float(row['distance']) == 0:
-                files_has_0_distance.append(file_path)
+    
 
-                print(file_path, row['distance'])
-        for content_1 in train_content_1_list:
-            rest_of_csv = [f for f in csv_files_after_filter if f != file]
+    def add_negative_samples(content_1_list, negative_sample_num, samples):
+        # print('content_1_list', content_1_list)
+        for content_1 in content_1_list:
+            rest_of_contents = [f for f in content_1_list if f["file_index"] != content_1["file_index"]]
+            # print('rest_of_contents_len', len(rest_of_contents))
+            # print('test', [t["file_index"] for t in rest_of_contents])
+
+            if not rest_of_contents:
+                print(f"Skipping {content_1} because rest_of_contents is empty")
+                continue  # 如果 rest_of_contents 为空，跳过这次循环
             random_negative_arguments = []
-            while len(random_negative_arguments)< negative_sample_num:
-                random_file = random.choice(rest_of_csv)
-                random_file_path = os.path.join(debates_path, random_file)
-                try:
-
-                    df_random_file = pd.read_csv(random_file_path)
-                    random_value = df_random_file['content_1'].sample().iloc[0]
-                    if random_value not in random_negative_arguments:
-                        random_negative_arguments.append(random_value)
-                except FileNotFoundError:
-                    print(f"File not found: {random_file_path}")
+            while len(random_negative_arguments) < negative_sample_num:
+                random_index_content = random.choice(rest_of_contents)
+                random_content = random_index_content["content"]
+                if random_content not in random_negative_arguments:
+                    random_negative_arguments.append(random_content)
+            # print('negative_arguments_len', len(random_negative_arguments))
 
 
             for negative_argument in random_negative_arguments:
-                neg_inp_example = InputExample(texts=[content_1, negative_argument], label=0.0)
-                train_data.append(neg_inp_example)
-    print("shuffle seed test, negative", random_negative_arguments[:10])
+                neg_inp_example = InputExample(texts=[content_1["content"], negative_argument], label=0.0)
+                samples.append(neg_inp_example)
+    print('train_content_1_list', len(train_content_1_list), 'dev_content_1_list', len(dev_content_1_list), 'test_content_1_list', len(test_content_1_list))
 
+    add_negative_samples(train_content_1_list, negative_sample_num, train_data)
+    add_negative_samples(dev_content_1_list, negative_sample_num, dev_data)
+    add_negative_samples(test_content_1_list, negative_sample_num, test_data)
 
-
-    for file in dev_files:
-        dev_content_1_list = []
-
-        file_path = os.path.join(debates_path, file)
-        # 读取CSV文件
-        if file in less_than_limit_files:
-            df = pd.read_csv(file_path)
-        elif file in over_limit_files:
-            pre_df = pd.read_csv(file_path)
-            df = pre_df.sample(n=max_pairs_size, random_state=random_seed_num)
-        # print(file_path)
-
-        # 按行处理数据
-        for index, row in df.iterrows():
-            if float(row['distance']) != 0 and not skip_argument(row['content_1']) and not skip_argument(row['content_2']) and float(row['distance']) <= max_distance:
-                score =  1/ float(row['distance']) # Normalize score to range 0 ... 1
-
-                inp_example = InputExample(texts=[row['content_1'], row['content_2']], label=score)
-                # print(score, row['content_1'], row['content_2'])
-
-                dev_data.append(inp_example)
-                if row['content_1'] not in dev_content_1_list:
-                    dev_content_1_list.append(row['content_1'])
-            elif float(row['distance']) == 0:
-                files_has_0_distance.append(file_path)
-
-                print(file_path, row['distance'])
-
-        for content_1 in dev_content_1_list:
-            rest_of_csv = [f for f in csv_files_after_filter if f != file]
-            random_negative_arguments = []
-            while len(random_negative_arguments)< negative_sample_num:
-                random_file = random.choice(rest_of_csv)
-                random_file_path = os.path.join(debates_path, random_file)
-                try:
-
-                    df_random_file = pd.read_csv(random_file_path)
-                    random_value = df_random_file['content_1'].sample().iloc[0]
-                    if random_value not in random_negative_arguments:
-                        random_negative_arguments.append(random_value)
-                except FileNotFoundError:
-                    print(f"File not found: {random_file_path}")
-
-            for negative_argument in random_negative_arguments:
-                neg_inp_example = InputExample(texts=[content_1, negative_argument], label=0.0)
-                dev_data.append(neg_inp_example)
-    for file in test_files:
-        test_content_1_list = []
-
-        file_path = os.path.join(debates_path, file)
-        # 读取CSV文件
-        if file in less_than_limit_files:
-            df = pd.read_csv(file_path)
-        elif file in over_limit_files:
-            pre_df = pd.read_csv(file_path)
-            df = pre_df.sample(n=max_pairs_size, random_state=random_seed_num)
-        # print(file_path)
-
-        # process the data by row
-        for index, row in df.iterrows():
-            if float(row['distance']) != 0 and not skip_argument(row['content_1']) and not skip_argument(row['content_2']) and float(row['distance']) <= max_distance:
-                score =  1/ float(row['distance']) # Normalize score to range 0 ... 1
-
-                inp_example = InputExample(texts=[row['content_1'], row['content_2']], label=score)
-                # print(score, row['content_1'], row['content_2'])
-
-                test_data.append(inp_example)
-                if row['content_1'] not in test_content_1_list:
-                    test_content_1_list.append(row['content_1'])
-            elif float(row['distance']) == 0:
-                files_has_0_distance.append(file_path)
-
-                print(file_path, row['distance'])
-        for content_1 in test_content_1_list:
-            rest_of_csv = [f for f in csv_files_after_filter if f != file]
-            random_negative_arguments = []
-            while len(random_negative_arguments)< negative_sample_num:
-                random_file = random.choice(rest_of_csv)
-                random_file_path = os.path.join(debates_path, random_file)
-                try:
-
-                    df_random_file = pd.read_csv(random_file_path)
-                    random_value = df_random_file['content_1'].sample().iloc[0]
-                    if random_value not in random_negative_arguments:
-                        random_negative_arguments.append(random_value)
-                except FileNotFoundError:
-                    print(f"File not found: {random_file_path}")
-
-            for negative_argument in random_negative_arguments:
-                neg_inp_example = InputExample(texts=[content_1, negative_argument], label=0.0)
-                test_data.append(neg_inp_example)
-
-
-    file_name = "files_has_0_distance.txt"
-
-    # 使用 'with' 语句打开文件进行写入，确保文件最后会被正确关闭
-    with open(file_name, "w") as file:
-        # 遍历列表，写入每一行
+    with open("files_has_0_distance.txt", "w") as file:
         for line in files_has_0_distance:
-            file.write(line + "\n")  # "\n" 是换行符
-    print("shuffle seed test, trainset", train_data[:10])
+            file.write(line + "\n")
 
+    random.shuffle(train_data)
+    random.shuffle(dev_data)
+    random.shuffle(test_data)
 
-    train_dataloader = DataLoader(train_data, shuffle=True, batch_size=train_batch_size)
-    dev_dataloader = DataLoader(dev_data, shuffle=True, batch_size=train_batch_size)
-    test_dataloader = DataLoader(test_data,shuffle=True, batch_size=train_batch_size)
+    # train_dataset = CustomDataset(train_data)
+    # dev_dataset = CustomDataset(dev_data)
+    # test_dataset = CustomDataset(test_data)
+
+    train_dataloader = DataLoader(train_data, shuffle=True, batch_size=train_batch_size, pin_memory=True)
+    dev_dataloader = DataLoader(dev_data, shuffle=True, batch_size=train_batch_size, pin_memory=True)
+    test_dataloader = DataLoader(test_data, shuffle=True, batch_size=train_batch_size, pin_memory=True)
+
+    print('model_name', model_name, 'train_batch_size', str(train_batch_size), 'num_epochs', str(num_epochs), 'negative_sample_num', str(negative_sample_num), 'distance_limit', str(distance_limit), 'csv_pair_size_limit', str(csv_pair_size_limit),'split_method_index', str(split_method_index), 'random_seed_num', str(random_seed_num))
+
     print("Number of training examples:", len(train_dataloader.dataset))
     print("Number of dev examples:", len(dev_dataloader.dataset))
     print("Number of test examples:", len(test_dataloader.dataset))
 
-
-
     return train_dataloader, dev_dataloader, test_dataloader, train_data, dev_data, test_data
+    # random.seed(random_seed_num)
+    # torch.manual_seed(random_seed_num)
+    # all_files = os.listdir(debates_path)
+    # # csv_files = [file for file in all_files if file.endswith('.csv') and (len(pd.read_csv(os.path.join(debates_path, file)))) < max_pairs_size]
+    # less_than_limit_files = []
+    # over_limit_files = []
+    # for file in all_files:
+    #     if file.endswith('.csv'):
+    #         if (len(pd.read_csv(os.path.join(debates_path, file)))) < max_pairs_size:
+    #             less_than_limit_files.append(file)
+    #         elif (len(pd.read_csv(os.path.join(debates_path, file)))) >= max_pairs_size:
+    #             over_limit_files.append(file)
+    # random.shuffle(over_limit_files)
+    # random.shuffle(less_than_limit_files)
+    # csv_files_after_filter = over_limit_files + less_than_limit_files
+    # random.shuffle(csv_files_after_filter)
+
+    # train_ratio = 0.8
+    # dev_ratio = 0.1
+    # test_ratio = 0.1
+
+    # # 确保所有比例加起来等于1
+    # assert train_ratio + dev_ratio + test_ratio == 1, "Ratios must sum up to 1."
+
+
+
+    # # Calculate the number of files for train, dev, and test sets
+    # train_files_count = int(train_ratio * len(csv_files_after_filter))
+    # dev_files_count = int(dev_ratio * len(csv_files_after_filter))
+    # test_files_count = int(test_ratio * len(csv_files_after_filter))
+
+    # # Make sure the total count does not exceed the number of available files
+    # assert train_files_count + dev_files_count + test_files_count <= len(
+    #     csv_files_after_filter), "File counts exceed total."
+
+    # # Split the file paths into training, development, and testing sets
+    # train_files = csv_files_after_filter[:train_files_count]
+    # dev_files = csv_files_after_filter[train_files_count:train_files_count + dev_files_count]
+    # test_files = csv_files_after_filter[train_files_count + dev_files_count:]
+    # print("train files lenth", len(train_files))
+    # print("dev files lenth", len(dev_files))
+    # print("test files lenth", len(test_files))
+    
+    # train_data = []
+    # dev_data = []
+    # test_data = []
+    # files_has_0_distance = []
+
+    # for file in train_files:
+    #     train_content_1_list = []
+    #     file_path = os.path.join(debates_path, file)
+    #     # read csv
+    #     if file in less_than_limit_files:
+    #         df = pd.read_csv(file_path)
+    #     elif file in over_limit_files:
+    #         pre_df = pd.read_csv(file_path)
+    #         df = pre_df.sample(n=max_pairs_size, random_state=random_seed_num)
+
+    #     print(file_path)
+
+    #     # proces data by row
+    #     for index, row in df.iterrows():
+    #         if float(row['distance']) != 0 and not skip_argument(row['content_1']) and not skip_argument(row['content_2']) and float(row['distance']) <= max_distance:
+    #             score =  1/ float(row['distance']) # Normalize score to range 0 ... 1
+
+
+    #             inp_example = InputExample(texts=[row['content_1'], row['content_2']], label=score)
+    #             # print(score, row['content_1'], row['content_2'])
+
+    #             train_data.append(inp_example)
+    #             if row['content_1'] not in train_content_1_list:
+    #                 train_content_1_list.append(row['content_1'])
+    #         elif float(row['distance']) == 0:
+    #             files_has_0_distance.append(file_path)
+
+    #             print(file_path, row['distance'])
+    #     for content_1 in train_content_1_list:
+    #         rest_of_csv = [f for f in csv_files_after_filter if f != file]
+    #         random_negative_arguments = []
+    #         while len(random_negative_arguments)< negative_sample_num:
+    #             random_file = random.choice(rest_of_csv)
+    #             random_file_path = os.path.join(debates_path, random_file)
+    #             try:
+
+    #                 df_random_file = pd.read_csv(random_file_path)
+    #                 random_value = df_random_file['content_1'].sample().iloc[0]
+    #                 if random_value not in random_negative_arguments:
+    #                     random_negative_arguments.append(random_value)
+    #             except FileNotFoundError:
+    #                 print(f"File not found: {random_file_path}")
+
+
+    #         for negative_argument in random_negative_arguments:
+    #             neg_inp_example = InputExample(texts=[content_1, negative_argument], label=0.0)
+    #             train_data.append(neg_inp_example)
+    # print("shuffle seed test, negative", random_negative_arguments[:10])
+
+
+
+    # for file in dev_files:
+    #     dev_content_1_list = []
+
+    #     file_path = os.path.join(debates_path, file)
+    #     # 读取CSV文件
+    #     if file in less_than_limit_files:
+    #         df = pd.read_csv(file_path)
+    #     elif file in over_limit_files:
+    #         pre_df = pd.read_csv(file_path)
+    #         df = pre_df.sample(n=max_pairs_size, random_state=random_seed_num)
+    #     # print(file_path)
+
+    #     # 按行处理数据
+    #     for index, row in df.iterrows():
+    #         if float(row['distance']) != 0 and not skip_argument(row['content_1']) and not skip_argument(row['content_2']) and float(row['distance']) <= max_distance:
+    #             score =  1/ float(row['distance']) # Normalize score to range 0 ... 1
+
+    #             inp_example = InputExample(texts=[row['content_1'], row['content_2']], label=score)
+    #             # print(score, row['content_1'], row['content_2'])
+
+    #             dev_data.append(inp_example)
+    #             if row['content_1'] not in dev_content_1_list:
+    #                 dev_content_1_list.append(row['content_1'])
+    #         elif float(row['distance']) == 0:
+    #             files_has_0_distance.append(file_path)
+
+    #             print(file_path, row['distance'])
+
+    #     for content_1 in dev_content_1_list:
+    #         rest_of_csv = [f for f in csv_files_after_filter if f != file]
+    #         random_negative_arguments = []
+    #         while len(random_negative_arguments)< negative_sample_num:
+    #             random_file = random.choice(rest_of_csv)
+    #             random_file_path = os.path.join(debates_path, random_file)
+    #             try:
+
+    #                 df_random_file = pd.read_csv(random_file_path)
+    #                 random_value = df_random_file['content_1'].sample().iloc[0]
+    #                 if random_value not in random_negative_arguments:
+    #                     random_negative_arguments.append(random_value)
+    #             except FileNotFoundError:
+    #                 print(f"File not found: {random_file_path}")
+
+    #         for negative_argument in random_negative_arguments:
+    #             neg_inp_example = InputExample(texts=[content_1, negative_argument], label=0.0)
+    #             dev_data.append(neg_inp_example)
+    # for file in test_files:
+    #     test_content_1_list = []
+
+    #     file_path = os.path.join(debates_path, file)
+    #     # 读取CSV文件
+    #     if file in less_than_limit_files:
+    #         df = pd.read_csv(file_path)
+    #     elif file in over_limit_files:
+    #         pre_df = pd.read_csv(file_path)
+    #         df = pre_df.sample(n=max_pairs_size, random_state=random_seed_num)
+    #     # print(file_path)
+
+    #     # process the data by row
+    #     for index, row in df.iterrows():
+    #         if float(row['distance']) != 0 and not skip_argument(row['content_1']) and not skip_argument(row['content_2']) and float(row['distance']) <= max_distance:
+    #             score =  1/ float(row['distance']) # Normalize score to range 0 ... 1
+
+    #             inp_example = InputExample(texts=[row['content_1'], row['content_2']], label=score)
+    #             # print(score, row['content_1'], row['content_2'])
+
+    #             test_data.append(inp_example)
+    #             if row['content_1'] not in test_content_1_list:
+    #                 test_content_1_list.append(row['content_1'])
+    #         elif float(row['distance']) == 0:
+    #             files_has_0_distance.append(file_path)
+
+    #             print(file_path, row['distance'])
+    #     for content_1 in test_content_1_list:
+    #         rest_of_csv = [f for f in csv_files_after_filter if f != file]
+    #         random_negative_arguments = []
+    #         while len(random_negative_arguments)< negative_sample_num:
+    #             random_file = random.choice(rest_of_csv)
+    #             random_file_path = os.path.join(debates_path, random_file)
+    #             try:
+
+    #                 df_random_file = pd.read_csv(random_file_path)
+    #                 random_value = df_random_file['content_1'].sample().iloc[0]
+    #                 if random_value not in random_negative_arguments:
+    #                     random_negative_arguments.append(random_value)
+    #             except FileNotFoundError:
+    #                 print(f"File not found: {random_file_path}")
+
+    #         for negative_argument in random_negative_arguments:
+    #             neg_inp_example = InputExample(texts=[content_1, negative_argument], label=0.0)
+    #             test_data.append(neg_inp_example)
+
+
+    # file_name = "files_has_0_distance.txt"
+
+    # # 使用 'with' 语句打开文件进行写入，确保文件最后会被正确关闭
+    # with open(file_name, "w") as file:
+    #     # 遍历列表，写入每一行
+    #     for line in files_has_0_distance:
+    #         file.write(line + "\n")  # "\n" 是换行符
+    # print("shuffle seed test, trainset", train_data[:10])
+
+
+    # train_dataloader = DataLoader(train_data, shuffle=True, batch_size=train_batch_size)
+    # dev_dataloader = DataLoader(dev_data, shuffle=True, batch_size=train_batch_size)
+    # test_dataloader = DataLoader(test_data,shuffle=True, batch_size=train_batch_size)
+    # print("Number of training examples:", len(train_dataloader.dataset))
+    # print("Number of dev examples:", len(dev_dataloader.dataset))
+    # print("Number of test examples:", len(test_dataloader.dataset))
+
+
+
+    # return train_dataloader, dev_dataloader, test_dataloader, train_data, dev_data, test_data
 
 
 
@@ -573,53 +739,53 @@ elif split_method_index == 2:
     train_dataloader, dev_dataloader, test_dataloader, train_data, dev_data, test_data = split_method_2(csv_pair_size_limit, distance_limit)
 
 
-train_loss = losses.CosineSimilarityLoss(model=model)
+# train_loss = losses.CosineSimilarityLoss(model=model)
+train_loss = losses.CoSENTLoss(model)
 
 
-class ExtendedEmbeddingSimilarityEvaluator(EmbeddingSimilarityEvaluator):
-    def __init__(self, sentence_examples, name='', main_similarity=None):
-        # 把 InputExample 对象列表转换为 EmbeddingSimilarityEvaluator 需要的格式
-        sentences1 = [example.texts[0] for example in sentence_examples]
-        sentences2 = [example.texts[1] for example in sentence_examples]
-        scores = [example.label for example in sentence_examples]
+# class ExtendedEmbeddingSimilarityEvaluator(EmbeddingSimilarityEvaluator):
+#     def __init__(self, sentence_examples, name='', main_similarity=None):
+#         # 把 InputExample 对象列表转换为 EmbeddingSimilarityEvaluator 需要的格式
+#         sentences1 = [example.texts[0] for example in sentence_examples]
+#         sentences2 = [example.texts[1] for example in sentence_examples]
+#         scores = [example.label for example in sentence_examples]
 
-        super().__init__(sentences1, sentences2, scores, main_similarity=main_similarity)
-        self.name = name  # 保留名称，以便在评估时使用
-        self.examples = sentence_examples  # 确保这里设置了examples属性
+#         super().__init__(sentences1, sentences2, scores, main_similarity=main_similarity)
+#         self.name = name  # 保留名称，以便在评估时使用
+#         self.examples = sentence_examples  # 确保这里设置了examples属性
 
-    def __call__(self, model, output_path=None, epoch=-1, steps=-1):
-        # 初始化一个列表来收集所有的余弦相似度分数
-        cos_sims = []
+#     def __call__(self, model, output_path=None, epoch=-1, steps=-1):
+#         # 初始化一个列表来收集所有的余弦相似度分数
+#         cos_sims = []
 
-        # 遍历每个输入示例
-        for example in self.examples:
-            # 从example中提取句子和标签
-            sentence1, sentence2, label = example.texts[0], example.texts[1], example.label
+#         # 遍历每个输入示例
+#         for example in self.examples:
+#             # 从example中提取句子和标签
+#             sentence1, sentence2, label = example.texts[0], example.texts[1], example.label
 
-            # 计算句子的嵌入向量
-            embeddings = model.encode([sentence1, sentence2], convert_to_tensor=True)
+#             # 计算句子的嵌入向量
+#             embeddings = model.encode([sentence1, sentence2], convert_to_tensor=True)
 
-            # 计算余弦相似度
-            cos_sim = util.pytorch_cos_sim(embeddings[0], embeddings[1]).item()
-            cos_sims.append(cos_sim)
+#             # 计算余弦相似度
+#             cos_sim = util.pytorch_cos_sim(embeddings[0], embeddings[1]).item()
+#             cos_sims.append(cos_sim)
 
-            # 打印句子、计算得到的相似度分数和实际标签
-            output_file_path = os.path.join(debates_path, "eval_step_by_step.txt")
+#             # 打印句子、计算得到的相似度分数和实际标签
+#             output_file_path = os.path.join(debates_path, "eval_step_by_step.txt")
 
-            # 使用 'with' 语句确保文件会被正确关闭
-            with open(output_file_path, "a") as file:  # 使用 "a" 模式以追加的方式写入文件
-                file.write(f"Sentence 1: {sentence1}\n")
-                file.write(f"Sentence 2: {sentence2}\n")
-                file.write(f"Predicted Cosine Similarity: {cos_sim}\n")
-                file.write(f"Actual Label: {label}\n\n")
+#             # 使用 'with' 语句确保文件会被正确关闭
+#             with open(output_file_path, "a") as file:  # 使用 "a" 模式以追加的方式写入文件
+#                 file.write(f"Sentence 1: {sentence1}\n")
+#                 file.write(f"Sentence 2: {sentence2}\n")
+#                 file.write(f"Predicted Cosine Similarity: {cos_sim}\n")
+#                 file.write(f"Actual Label: {label}\n\n")
 
-        # 计算并返回平均余弦相似度
-        return np.mean(cos_sims)
+#         # 计算并返回平均余弦相似度
+#         return np.mean(cos_sims)
 
 
 logging.info("Read STSbenchmark dev dataset")
 evaluator = EmbeddingSimilarityEvaluator.from_input_examples(dev_data, name='sts-dev')
-# evaluator = ExtendedEmbeddingSimilarityEvaluator(dev_data, name='sts-dev')
 
 
 warmup_steps = math.ceil(len(train_dataloader) * num_epochs  * 0.1) #10% of train data for warm-up
@@ -635,9 +801,8 @@ model.fit(train_objectives=[(train_dataloader, train_loss)],
           warmup_steps=warmup_steps,
           output_path=model_save_path)
 
-# model = SentenceTransformer(model_save_path)
+model = SentenceTransformer(model_save_path)
 test_evaluator = EmbeddingSimilarityEvaluator.from_input_examples(test_data, name='sts-test')
-# test_evaluator = ExtendedEmbeddingSimilarityEvaluator(test_data, name='sts-test')
 
 test_evaluator(model, output_path=model_save_path)
 generate_yaml(model_name.replace("/", "-")+'-'+datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
