@@ -14,6 +14,15 @@ counts = [0] * (len(intervals) - 1)
 sums = [0] * (len(intervals) - 1)
 
 # 计算每个区间的文件数量和pair_nums总和
+group_lessthan1000 = []
+group_1000_10000 = []
+group_10000_100000 = []
+group_100000_1000000 = []
+group_1000000_10000000 = []
+group_morethan10000000 = []
+
+
+
 
 
 save_dir = '/mount/studenten5/projects/fanze/masterarbeit_data/dataset_visualization'
@@ -30,10 +39,26 @@ for file in files_path:
         print(os.path.basename(file), pair_num)
     except Exception as e:
         print(f"Error reading {files_path}: {e}")
+
+    if pair_num < 1000:
+        group_lessthan1000.extend(file)
+    if pair_num < 10000 and pair_num>= 1000:
+        group_1000_10000.extend(file)
+    if pair_num < 100000 and pair_num>= 10000:
+        group_10000_100000.extend(file)
+    if pair_num < 1000000 and pair_num>= 100000:
+        group_100000_1000000.extend(file)
+    if pair_num < 10000000 and pair_num>= 1000000:
+        group_1000000_10000000.extend(file)
+    if pair_num > 10000000:
+        group_morethan10000000.extend(file)
+
+print('group_lessthan1000',len(group_lessthan1000), 'group_1000_10000',len(group_1000_10000), 'group_10000_100000',len(group_10000_100000),'group_100000_1000000',len(group_100000_1000000),'group_1000000_10000000',len(group_1000000_10000000),'group_morethan10000000',len(group_morethan10000000))
 print(len(files_path), total_pairs_num)
 
 files = list(debates_pair_size.keys())
 pair_nums = list(debates_pair_size.values())
+
 
 for num in pair_nums:
     for i in range(1, len(intervals)):
