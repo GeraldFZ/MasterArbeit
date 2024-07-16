@@ -557,80 +557,10 @@ def split_method_3(max_pairs_size, max_distance):
 
         return train_samples_file, dev_samples_file, test_samples_file                     
 
-        # """  过滤出距离小于最大距离的pairs并将file_index和content加入file_argument_list收集每个文件中的argument"""
-        # for index, row in sampled_df.iterrows():
-        #     if float(row['distance']) != 0 and not skip_argument(row['content_1']) and not skip_argument(row['content_2']) and float(row['distance']) <= max_distance:
-        #         if row['content_1'] not in [content['content'] for content in file_argument_list]:
-        #             file_argument_list.append({"file_index": str(file_index), "content": row['content_1']})
-        #     elif float(row['distance']) == 0:
-        #         files_has_0_distance.append(file_path)
-
-        #     train_arg_num = max(1, int(train_ratio * len(file_argument_list)))
-        #     dev_arg_num = max(1, int(dev_ratio * len(file_argument_list)))
-        #     test_arg_num = max(1, int(test_ratio * len(file_argument_list)))
-
-        #     total_args = train_arg_num + dev_arg_num + test_arg_num
-        #     if total_args > len(file_argument_list):
-        #         train_arg_num -= (total_args - len(file_argument_list))
-            
-        #     assert train_arg_num + dev_arg_num + test_arg_num <= len(file_argument_list), "Total size exceeds the list length."
-        #     """ 每个文件用来过滤pairs的argument训练集dev集和测试集 """
-        #     train_arg_set = file_argument_list[:train_arg_num]
-        #     dev_arg_set = file_argument_list[train_arg_num:train_arg_num + dev_arg_num]
-        #     test_arg_set = file_argument_list[train_arg_num + dev_arg_num:]
-        #     # print('TEST_1', len(train_arg_set), len(dev_arg_set), len(test_arg_set))
-        #     """ 每个文件用来过滤pairs的argument训练集dev集和测试集中的content """
-        #     train_contents = {item['content'] for item in train_arg_set}
-        #     dev_contents = {item['content'] for item in dev_arg_set}
-        #     test_contents = {item['content'] for item in test_arg_set}
             
             
 
-        # """ 具体处理每个文件中被距离过滤后的samples """
-        # for index, row in sampled_df.iterrows():
-        #     if float(row['distance']) != 0 and not skip_argument(row['content_1']) and not skip_argument(row['content_2']) and float(row['distance']) <= max_distance:
-        #         if judge_same_set(row['content_1'], row['content_2'], train_contents, dev_contents, test_contents):
-        #             if float(row['polarity_consistency']) == 1:
-        #                 score = 1 
-        #                 inp_example = InputExample(texts=[row['content_1'], row['content_2']], label=float(score))
-        #                 # print('test')
-        #                 if row['content_1'] in train_contents and row['content_2'] in train_contents:
-        #                     train_samples.append(inp_example)
-        #                     print('TEST_2.5dev', len(train_samples))
-                            
-        #                 elif row['content_1'] in dev_contents and row['content_2'] in dev_contents:
-        #                     dev_samples.append(inp_example)
-        #                     print('TEST_2.6dev', len(dev_samples))
-        #                 elif row['content_1'] in test_contents and row['content_2'] in test_contents:
-        #                     test_samples.append(inp_example)
-        #                     print('TEST_2.7dev', len(test_samples))
-                            
-                        
-        #             if float(row['polarity_consistency']) == -1:
-        #                     if float(row['polarity_1']) == 0:
-        #                         # score = 1
-        #                         # inp_example = InputExample(texts=[row['content_1'], row['content_2']], label=score)
-        #                         print('TEST_2.8dev', len(dev_samples))
-                                
-                                
-        #                         pass
-        #                     elif float(row['polarity_1']) != 0:
-        #                         score = 0
-        #                         inp_example = InputExample(texts=[row['content_1'], row['content_2']], label=float(score))
 
-        #                         if row['content_1'] in train_contents and row['content_2'] in train_contents:
-        #                             train_samples.append(inp_example)
-        #                             print('TEST_2.9dev', len(train_samples))
-                                    
-        #                         if row['content_1'] in dev_contents and row['content_2'] in dev_contents:
-        #                             dev_samples.append(inp_example)
-        #                             print('TEST_2.10dev', len(dev_samples))
-        #                         if row['content_1'] in test_contents and row['content_2'] in test_contents:
-        #                             test_samples.append(inp_example)
-        #                             print('TEST_2.7dev', len(test_samples))
-                                                        
-
-        # return train_samples, dev_samples, test_samples, file_argument_list, train_arg_set, dev_arg_set, test_arg_set, files_has_0_distance
 
 
    
@@ -786,7 +716,7 @@ class CosineSimilarityToProbability(nn.Module):
         return (cos_sim + 1) / 2
 
 
-train_loss = losses.CosineSimilarityLoss(model=model, loss_fct= nn.BCELoss(), cos_score_transformation= CosineSimilarityToProbability())
+train_loss = losses.CosineSimilarityLoss(model=model, loss_fct= nn.BCELoss(), cos_score_transformation= nn.ReLU())
 # train_loss = nn.BCEWithLogitsLoss()
 # train_loss = losses.SoftmaxLoss(model, model.get_sentence_embedding_dimension(), num_labels=1)
 logging.info("Read STSbenchmark dev dataset")
@@ -803,7 +733,6 @@ model.fit(train_objectives=[(train_dataloader, train_loss)],
           output_path=model_save_path)
 
 
-# 假设 input_examples 是一个包含多个 InputExample 对象的列表
 
 
 

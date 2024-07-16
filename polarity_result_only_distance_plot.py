@@ -2,27 +2,27 @@ import matplotlib.pyplot as plt
 
 # 假设的数据
 distances = [1, 2, 3, 5, 10]  # 横坐标：distance
-split_method1 = [0.7283678316932474, 0.8189701653486701, 0.9464277172786556, 0.9873948224125507, 0.9980742152911177]  # 纵坐标：split method1 的 accuracy
-split_method2 = [0.7470143312101911, 0.6448093056770806, 0.5956145746643992, 0.5481450691925299, 0.5298006004309618]  # 纵坐标：split method2 的 accuracy
-split_method3 = [0.7284231840040496, 0.6409025848278185, 0.597301286105840232, 0.5642534103026069, 0.539390914667748]
+split_method1 = [0.7283678316932474, 0.8076029825204742, 0.9121688414393041, 0.9776421666576659, 0.9215591186009153]  # 纵坐标：split method1 的 accuracy
+split_method2 = [0.7470143312101911, 0.6399861159319681, 0.5856883805272702, , 0.5216129032258064]  # 纵坐标：split method2 的 accuracy
+split_method3 = [0.7284231840040496, 0.6360080746908907, 0., 0., 0.]
 # 1-10, 2-10, 3-10
 # 数据量信息
 data_info = [
     "Method 1",
     "Distance 1: Train 47145, Dev 5893, Test 5894",
-    "Distance 2: Train 178041, Dev 22255, Test 22256",
-    "Distance 3: Train 501752, Dev 62719, Test 62719",
-    "Distance 5: Train 2231461, Dev 278933, Test 278933",
-    "Distance 10: Train 6613407, Dev 826676, Test 826676",
+    "Distance 2: Train 130896, Dev 16362, Test 16362",
+    "Distance 3: Train 323710, Dev 40464, Test 40464",
+    "Distance 5: Train 1036948, Dev 129618, Test 129619",
+    "Distance 10: Train 527886, Dev 65986, Test 65986",
     "Method 2",
     "Distance 1: Train 48271, Dev 5637, Test 5024",
-    "Distance 2: Train 181893, Dev 21230, Test 19429",
-    "Distance 3: Train 512163, Dev 59753, Test 55274",
-    "Distance 5: Train 2294728, Dev 256423, Test 238176",
-    "Distance 10: Train 6867405, Dev 740827, Test 658527",
+    "Distance 2: Train 133622, Dev 15593, Test 14405",
+    "Distance 3: Train 330270, Dev 38523, Test 35845",
+    "Distance 5: Train , Dev , Test ",
+    "Distance 10: Train 559796, Dev 56662, Test 43400",
     "Method 3",
     "Distance 1: Train 44805, Dev 2994, Test 3951",
-    "Distance 2: Train 162031, Dev 8857, Test 11877",
+    "Distance 2: Train 117226, Dev 5863, Test 7926",
     "Distance 3: Train 429419, Dev 17396, Test 23715",
     "Distance 5: Train 1758640, Dev 40891, Test 54394",
     "Distance 10: Train 5138358, Dev 82987, Test 96177"
@@ -44,7 +44,7 @@ plt.yticks([0,0.1, 0.2,0.3, 0.4,0.5, 0.6,0.7, 0.8,0.9, 1.0])  # 设置y轴的刻
 plt.grid(True, which='both', linestyle='--', linewidth=0.5)
 
 # 添加标题和标签
-plt.title('Accuracy vs Distance')
+plt.title('Accuracy vs Single Distance')
 plt.xlabel('Distance')
 plt.ylabel('Cosine accuracy')
 plt.legend()

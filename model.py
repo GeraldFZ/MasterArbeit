@@ -143,6 +143,8 @@ def split_method_1(max_pairs_size, max_distance):
             samples.extend(file_samples)
             content_1_list.extend(file_content_1_list)
             files_has_0_distance.extend(file_has_0_distance)
+    print('number of total pairs', samples)
+    print("argument number",  len(content_1_list))
 
     for content_1 in content_1_list:
         rest_of_contents = [f for f in content_1_list if f["file_index"] != content_1["file_index"]]
@@ -182,6 +184,8 @@ def split_method_1(max_pairs_size, max_distance):
     print("Number of training examples:", len(train_dataloader.dataset))
     print("Number of dev examples:", len(dev_dataloader.dataset))
     print("Number of test examples:", len(test_dataloader.dataset))
+    
+    
 
     return train_dataloader, dev_dataloader, test_dataloader, train_data, dev_data, test_data
 
@@ -372,7 +376,7 @@ def split_method_3(max_pairs_size, max_distance):
         files_has_0_distance = []
         file_index, _ = os.path.splitext(os.path.basename(file_path))
 
-        print('TESTTTT', file_index, csv_files_after_filter[0])
+        # print('TESTTTT', file_index, csv_files_after_filter[0])
         
 
 
@@ -433,6 +437,10 @@ def split_method_3(max_pairs_size, max_distance):
         dev_samples_neg_file =[]
         test_samples_neg_file = []
 
+        train_argument_index_set_file = []
+        dev_argument_index_set_file = []
+        test_argument_index_set_file = []
+
 
         def judge_same_set(content_1, content_2, train_set, dev_set, test_set):
 
@@ -460,11 +468,20 @@ def split_method_3(max_pairs_size, max_distance):
                             train_samples_file.append(inp_example)
                             random_key = random.sample(train_other_keys, negative_sample_num)
                             # 从选择的键对应的子字典中随机选取一条内容
-                            for key in random_key:
-                                random_content = random.choice(list(train_contents_total[key]))
-                                neg_inp_example = InputExample(texts=[row['content_1'], random_content], label=0.0)
-                                train_samples_neg_file.append(neg_inp_example)
-                                train_neg_num_file += 1
+                            if row['index_1'] not in train_argument_index_set_file:
+                                for key in random_key:
+                                    random_content = random.choice(list(train_contents_total[key]))
+                                    neg_inp_example = InputExample(texts=[row['content_1'], random_content], label=0.0)
+                                    train_samples_neg_file.append(neg_inp_example)
+                                    train_neg_num_file += 1
+                                    train_argument_index_set_file.append(row['index_1'])
+                            if row['index_2'] not in train_argument_index_set_file:
+                                for key in random_key:
+                                    random_content = random.choice(list(train_contents_total[key]))
+                                    neg_inp_example = InputExample(texts=[row['content_2'], random_content], label=0.0)
+                                    train_samples_neg_file.append(neg_inp_example)
+                                    train_neg_num_file += 1
+                                    train_argument_index_set_file.append(row['index_2'])
 
                             
                         elif row['content_1'] in dev_contents_total[file_index] and row['content_2'] in dev_contents_total[file_index]:
@@ -472,22 +489,40 @@ def split_method_3(max_pairs_size, max_distance):
                             dev_samples_file.append(inp_example)
                             random_key = random.sample(dev_other_keys, negative_sample_num)
                             # 从选择的键对应的子字典中随机选取一条内容
-                            for key in random_key:
-                                random_content = random.choice(list(dev_contents_total[key]))
-                                neg_inp_example = InputExample(texts=[row['content_1'], random_content], label=0.0)
-                                dev_samples_neg_file.append(neg_inp_example)
-                                dev_neg_num_file += 1
+                            if row['index_1'] not in dev_argument_index_set_file:
+                                for key in random_key:
+                                    random_content = random.choice(list(dev_contents_total[key]))
+                                    neg_inp_example = InputExample(texts=[row['content_1'], random_content], label=0.0)
+                                    dev_samples_neg_file.append(neg_inp_example)
+                                    dev_neg_num_file += 1
+                                    dev_argument_index_set_file.append(row['index_1'])
+                            if row['index_2'] not in dev_argument_index_set_file:
+                                for key in random_key:
+                                    random_content = random.choice(list(dev_contents_total[key]))
+                                    neg_inp_example = InputExample(texts=[row['content_2'], random_content], label=0.0)
+                                    dev_samples_neg_file.append(neg_inp_example)
+                                    dev_neg_num_file += 1
+                                    dev_argument_index_set_file.append(row['index_2'])
                                 
                         elif row['content_1'] in test_contents_total[file_index] and row['content_2'] in test_contents_total[file_index]:
                             # print('TEST_2.5test', len(test_samples))
                             test_samples_file.append(inp_example)
                             random_key = random.sample(test_other_keys, negative_sample_num)
                             # 从选择的键对应的子字典中随机选取一条内容
-                            for key in random_key:
-                                random_content = random.choice(list(test_contents_total[key]))
-                                neg_inp_example = InputExample(texts=[row['content_1'], random_content], label=0.0)
-                                test_samples_neg_file.append(neg_inp_example)
-                                test_neg_num_file += 1
+                            if row['index_1'] not in test_argument_index_set_file:
+                                for key in random_key:
+                                    random_content = random.choice(list(test_contents_total[key]))
+                                    neg_inp_example = InputExample(texts=[row['content_1'], random_content], label=0.0)
+                                    test_samples_neg_file.append(neg_inp_example)
+                                    test_neg_num_file += 1
+                                    test_argument_index_set_file.append(row['index_1'])
+                            if row['index_2'] not in test_argument_index_set_file:
+                                for key in random_key:
+                                    random_content = random.choice(list(test_contents_total[key]))
+                                    neg_inp_example = InputExample(texts=[row['content_2'], random_content], label=0.0)
+                                    test_samples_neg_file.append(neg_inp_example)
+                                    test_neg_num_file += 1
+                                    test_argument_index_set_file.append(row['index_2'])
         # print('TEST_3', len(train_samples), len(dev_samples), len(test_samples))
                             
                         
@@ -714,62 +749,12 @@ evaluator = EmbeddingSimilarityEvaluator.from_input_examples(dev_data, name='sts
 
 warmup_steps = math.ceil(len(train_dataloader) * num_epochs  * 0.1) #10% of train data for warm-up
 logging.info("Warmup-steps: {}".format(warmup_steps))
-class EarlyStopping:
-    def __init__(self, patience=3, min_delta=0.01):
-        """
-        Args:
-            patience (int): 提前停止的耐心周期
-            min_delta (float): 作为改进的最小变化
-        """
-        self.patience = patience
-        self.min_delta = min_delta
-        self.counter = 0
-        self.best_score = None
-        self.early_stop = False
 
-    def __call__(self, score):
-        if self.best_score is None:
-            self.best_score = score
-        elif score < self.best_score - self.min_delta:
-            self.counter += 1
-            print(f'EarlyStopping: {self.counter}/{self.patience}')
-            if self.counter >= self.patience:
-                self.early_stop = True
-        else:
-            self.best_score = score
-            self.counter = 0
+    
 
-
-
-early_stopping = EarlyStopping(patience=3, min_delta=0.01)
-
-def callback(score, epoch, steps):
-    early_stopping(score)
-    if early_stopping.early_stop:
-        print("Early stopping")
-        return -1  # 返回 -1 通知 model.fit 停止训练
-
-
-
-class CustomEvaluator(SentenceEvaluator):
-    def __init__(self, evaluator, callback):
-        self.evaluator = evaluator
-        self.callback = callback
-
-    def __call__(self, model, output_path: str, epoch: int, steps: int) -> float:
-        # 调用原始评估器
-        score = self.evaluator(model, output_path, epoch, steps)
-        # 调用回调函数进行早停检查
-        result = self.callback(score, epoch, steps)
-        if result == -1:
-            print("Training stopped early")
-            raise KeyboardInterrupt  # 使用异常中断训练
-        return score
-evaluator = EmbeddingSimilarityEvaluator.from_input_examples(dev_data, name='sts-dev', main_similarity=SimilarityFunction.COSINE)
-custom_evaluator = CustomEvaluator(evaluator, callback)
 
 model.fit(train_objectives=[(train_dataloader, train_loss)],
-          evaluator=custom_evaluator,
+          evaluator=evaluator,
           epochs=num_epochs,
           evaluation_steps=1000,
           warmup_steps=warmup_steps,
